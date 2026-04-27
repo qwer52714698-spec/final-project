@@ -1,0 +1,29 @@
+# 1. 환경 변수 및 비밀 정보 (가장 중요 ⭐)
+.env
+*.env
+.venv/
+env/
+venv/
+ENV/
+
+# 2. 파이썬 실행 관련 쓰레기 파일
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.python-version
+
+# 3. 데이터베이스 및 로그
+*.db
+*.sqlite3
+*.log
+
+# 4. 운영체제 및 에디터 설정
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# 5. 데이터 및 결과물 (대용량 파일 방지)
+data/*.csv
+data/*.json

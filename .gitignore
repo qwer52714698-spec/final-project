@@ -27,3 +27,6 @@ Thumbs.db
 # 5. 데이터 및 결과물 (대용량 파일 방지)
 data/*.csv
 data/*.json
+
+node_modules/
+frontend/node_modules/

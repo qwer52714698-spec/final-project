@@ -24,3 +24,5 @@ yfinance
 requests      
 beautifulsoup4  
 pymysql
+
+psycopg2-binary

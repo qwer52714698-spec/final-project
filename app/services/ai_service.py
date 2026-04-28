@@ -4,7 +4,6 @@ import json
 import os
 import re
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
 from typing import Any
 
 from dotenv import load_dotenv
@@ -54,11 +53,8 @@ class AnalysisResult:
     keywords: list[str]
     sector: str
     event_type: str
-    importance_score: float
-    freshness_score: float
     impact_score: float
     summary: str
-    created_at: str
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -76,9 +72,9 @@ def preprocess_news(title: str, content: str | None) -> str:
     return MULTISPACE_RE.sub(" ", normalized).strip()
 
 
-def build_analysis_prompt(title: str, content: str | None, created_at: Any = None) -> str:
+def build_analysis_prompt(title: str, content: str | None, published_at: Any = None) -> str:
     content_text = content or ""
-    created_at_text = str(created_at) if created_at else ""
+    published_at_text = str(published_at) if published_at else ""
     return f"""
 너는 주식 뉴스 분석 AI다.
 입력된 뉴스 텍스트를 읽고, 투자 판단에 활용할 수 있도록 아래 항목들을 분석하라.
@@ -89,8 +85,6 @@ def build_analysis_prompt(title: str, content: str | None, created_at: Any = Non
 - 핵심 키워드를 3~5개 추출
 - 뉴스가 영향을 주는 산업 섹터를 분류
 - 이벤트 종류를 분류
-- 뉴스 중요도를 0.0 ~ 1.0 범위로 평가
-- 최신성을 0.0 ~ 1.0 범위로 평가
 - 최종 투자 영향 점수를 -1.0 ~ 1.0 범위로 산출
 - 뉴스 내용을 1~2문장으로 요약
 
@@ -104,25 +98,23 @@ JSON 스키마:
   "keywords": ["string", "string", "string"],
   "sector": "string",
   "event_type": "string",
-  "importance_score": float,
-  "freshness_score": float,
   "impact_score": float,
   "summary": "string"
 }}
 
 규칙:
 1. sentiment_score는 -1.0 ~ 1.0 범위로 반환한다.
-2. importance_score와 freshness_score는 0.0 ~ 1.0 범위로 반환한다.
-3. impact_score는 실제 주가/섹터에 미칠 수 있는 종합 영향을 기준으로 -1.0 ~ 1.0 범위에서 반환한다.
-4. keywords는 핵심 키워드 3~5개를 배열로 반환한다.
-5. sector는 가능한 경우 다음 중 하나를 우선 사용한다: {", ".join(SECTOR_CANDIDATES)}.
-6. event_type은 가능한 경우 다음 중 하나를 우선 사용한다: {", ".join(EVENT_TYPE_CANDIDATES)}.
+2. impact_score는 실제 주가/섹터에 미칠 수 있는 종합 영향을 기준으로 -1.0 ~ 1.0 범위에서 반환한다.
+3. keywords는 핵심 키워드 3~5개를 배열로 반환한다.
+4. sector는 가능한 경우 다음 중 하나를 우선 사용한다: {", ".join(SECTOR_CANDIDATES)}.
+5. event_type은 가능한 경우 다음 중 하나를 우선 사용한다: {", ".join(EVENT_TYPE_CANDIDATES)}.
+6. 작성시각이 최근일수록 현재 시장에 미치는 영향까지 고려하되, 출력에는 별도 최신성 점수를 포함하지 않는다.
 7. 추측하지 말고 뉴스 내용에 근거해 판단한다.
 
 입력 뉴스:
 제목: {title}
 본문: {content_text}
-작성시각: {created_at_text}
+작성시각: {published_at_text}
 """.strip()
 
 
@@ -137,11 +129,11 @@ def analyze_news_with_gpt(
     clean_text: str,
     title: str,
     content: str | None,
-    created_at: Any = None,
+    published_at: Any = None,
     model: str = "gpt-4o-mini",
 ) -> dict[str, Any]:
     client = get_openai_client()
-    prompt = build_analysis_prompt(title=title, content=content or clean_text, created_at=created_at)
+    prompt = build_analysis_prompt(title=title, content=content or clean_text, published_at=published_at)
 
     response = client.chat.completions.create(
         model=model,
@@ -204,11 +196,8 @@ def validate_analysis_result(result: dict[str, Any], news_id: int | None = None)
         keywords=normalize_keywords(result.get("keywords")),
         sector=normalize_choice(result.get("sector"), SECTOR_CANDIDATES),
         event_type=normalize_choice(result.get("event_type"), EVENT_TYPE_CANDIDATES),
-        importance_score=clamp(result.get("importance_score"), 0.0, 1.0, 0.5),
-        freshness_score=clamp(result.get("freshness_score"), 0.0, 1.0, 0.5),
         impact_score=clamp(result.get("impact_score"), -1.0, 1.0, 0.0),
         summary=summary,
-        created_at=datetime.now(timezone.utc).isoformat(),
     )
 
 
@@ -216,14 +205,14 @@ def analyze_single_news(news: Any, model: str = "gpt-4o-mini") -> AnalysisResult
     title = getattr(news, "title", "") or ""
     content = getattr(news, "content", "") or ""
     news_id = getattr(news, "id", None)
-    created_at = getattr(news, "created_at", None)
+    published_at = getattr(news, "published_at", None) or getattr(news, "created_at", None)
 
     clean_text = preprocess_news(title, content)
     raw_result = analyze_news_with_gpt(
         clean_text=clean_text,
         title=title,
         content=clean_text,
-        created_at=created_at,
+        published_at=published_at,
         model=model,
     )
     return validate_analysis_result(raw_result, news_id=news_id)

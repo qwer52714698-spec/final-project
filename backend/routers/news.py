@@ -130,8 +130,8 @@ def analyze_single(
     if not news:
         raise HTTPException(status_code=404, detail="뉴스를 찾을 수 없습니다.")
 
-    if not settings.GEMINI_API_KEY:
-        raise HTTPException(status_code=503, detail="Gemini API 키가 설정되지 않았습니다.")
+    if not settings.OPENAI_API_KEY:
+        raise HTTPException(status_code=503, detail="Openai API 키가 설정되지 않았습니다.")
 
     sector = db.query(models.Sector).filter(models.Sector.id == news.sector_id).first()
     sector_name = sector.name if sector else "일반"

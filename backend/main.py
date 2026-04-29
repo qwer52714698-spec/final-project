@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from database import engine
 import models
 # 각 기능별 라우터 가져오기
-from routers import news, stocks, auth 
+from routers import news, stocks
 
 # DB 테이블 생성 (서버 켤 때마다 모델 확인)
 models.Base.metadata.create_all(bind=engine)
@@ -23,7 +23,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 🚦 분산되어 있던 기능(Router)들을 하나로 합체!
+#  분산되어 있던 기능(Router)들을 하나로 합체
 app.include_router(news.router)
 app.include_router(stocks.router)
 # app.include_router(auth.router) # auth.py가 준비되면 주석 해제

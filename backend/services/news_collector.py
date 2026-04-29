@@ -7,6 +7,9 @@ from database import SessionLocal
 from config import settings
 import models
 
+# ✨ 조장님이 알려주신 AI 분석 엔진 가져오기
+from services.ai_analyzer import analyze_news_item
+
 SECTOR_KEYWORDS = {
     "반도체": ["반도체", "삼성전자", "SK하이닉스", "메모리"],
     "2차전지": ["2차전지", "배터리", "LG에너지솔루션", "삼성SDI", "전기차 배터리"],
@@ -19,17 +22,14 @@ SECTOR_KEYWORDS = {
     "소비재": ["유통", "식품", "소비", "유통업", "이마트"],
 }
 
-
 def strip_html(text: str) -> str:
     return re.sub(r"<[^>]+>", "", text).strip()
-
 
 def parse_naver_date(date_str: str) -> datetime:
     try:
         return datetime.strptime(date_str, "%a, %d %b %Y %H:%M:%S %z").replace(tzinfo=None)
     except Exception:
         return datetime.utcnow()
-
 
 def fetch_article_content(url: str) -> str:
     try:
@@ -42,7 +42,6 @@ def fetch_article_content(url: str) -> str:
         pass
     return ""
 
-
 def collect_news_for_sector(sector_id: int, sector_name: str):
     if not settings.NAVER_CLIENT_ID or not settings.NAVER_CLIENT_SECRET:
         print(f"[뉴스수집] Naver API 키가 설정되지 않았습니다. 섹터: {sector_name}")
@@ -50,8 +49,9 @@ def collect_news_for_sector(sector_id: int, sector_name: str):
 
     keywords = SECTOR_KEYWORDS.get(sector_name, [sector_name])
     db: Session = SessionLocal()
+    
     try:
-        for keyword in keywords[:2]:
+        for keyword in keywords[:2]: # 섹터당 상위 2개 키워드만 사용 (API 할당량 고려)
             params = {"query": keyword, "display": 10, "sort": "date"}
             headers = {
                 "X-Naver-Client-Id": settings.NAVER_CLIENT_ID,
@@ -71,9 +71,7 @@ def collect_news_for_sector(sector_id: int, sector_name: str):
 
             for item in data.get("items", []):
                 url = item.get("originallink") or item.get("link", "")
-                if not url:
-                    continue
-                if db.query(models.News).filter(models.News.url == url).first():
+                if not url or db.query(models.News).filter(models.News.url == url).first():
                     continue
 
                 title = strip_html(item.get("title", ""))
@@ -81,25 +79,34 @@ def collect_news_for_sector(sector_id: int, sector_name: str):
                 content = fetch_article_content(url) or description
                 published_at = parse_naver_date(item.get("pubDate", ""))
 
+                # 🚀 [AI분석 통합] 저장하기 전 GPT-4o-mini로 분석 수행
                 try:
-                    news = models.News(
+                    # 분석을 위해 임시 News 객체 생성 (DB 저장 전 데이터 전달용)
+                    temp_news = models.News(title=title, content=content, published_at=published_at, sector_id=sector_id)
+                    
+                    print(f"[AI분석 중] {title[:25]}...")
+                    score, label, summary = analyze_news_item(temp_news, sector_name)
+                    
+                    # 분석 결과와 함께 최종 저장
+                    new_news = models.News(
                         sector_id=sector_id,
                         title=title,
                         content=content,
                         url=url,
                         published_at=published_at,
+                        sentiment_score=score,
+                        sentiment_label=label,
+                        ai_summary=summary
                     )
-                    db.add(news)
+                    db.add(new_news)
                     db.commit()
-                except Exception:
+                except Exception as e:
+                    print(f"[분석/저장 오류] {e}")
                     db.rollback()
-        print(f"[뉴스수집] {sector_name} 완료")
-    except Exception as e:
-        db.rollback()
-        print(f"[뉴스수집] 오류: {e}")
+                    
+        print(f"[뉴스수집 완료] {sector_name}")
     finally:
         db.close()
-
 
 def collect_all_news():
     db: Session = SessionLocal()
@@ -111,3 +118,8 @@ def collect_all_news():
 
     for sector_id, sector_name in sector_list:
         collect_news_for_sector(sector_id, sector_name)
+
+if __name__ == "__main__":
+    print("🚀 뉴스 수집 및 GPT-4o-mini 분석 엔진 가동...")
+    collect_all_news()
+    print("✨ 모든 섹터 뉴스 수집 및 분석 완료!")

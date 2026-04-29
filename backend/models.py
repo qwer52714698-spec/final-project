@@ -13,8 +13,8 @@ class User(Base):
     password_hash = Column(String(255), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    posts = relationship("Post", back_populates="author", cascade="all, delete-orphan")
-    comments = relationship("Comment", back_populates="author", cascade="all, delete-orphan")
+    #posts = relationship("Post", back_populates="author", cascade="all, delete-orphan")
+    #comments = relationship("Comment", back_populates="author", cascade="all, delete-orphan")
 
 
 class Sector(Base):

@@ -26,6 +26,7 @@ MAX_STRONG_SCORE = 0.6
 LOW_RELEVANCE_SCORE_CAP = 0.1
 LOW_INFO_SUMMARY = "본문 정보가 부족해 중립적으로 처리했습니다."
 LOW_RELEVANCE_SUMMARY = "투자 영향이 낮은 기사로 판단해 중립적으로 처리했습니다."
+BATCH_LIMIT = 20
 
 LOW_INFO_PATTERNS = (
     "기자명",
@@ -174,7 +175,7 @@ def normalize_summary(value: Any, fallback_text: str) -> str:
 
 def is_low_information_article(clean_text: str) -> bool:
     text_lower = clean_text.lower()
-    if len(clean_text) < LOW_INFO_MIN_LENGTH:
+    if len(clean_text) < 120:
         return True
 
     pattern_hits = sum(pattern.lower() in text_lower for pattern in LOW_INFO_PATTERNS)
@@ -245,9 +246,12 @@ def analyze_news_item(news: models.News, sector_name: str) -> tuple[float, str, 
     return score, label, summary
 
 
-def analyze_pending_news(limit: int = 50) -> int:
+def analyze_pending_news(limit: int = BATCH_LIMIT) -> int:
     db: Session = SessionLocal()
     processed_count = 0
+    low_info_count = 0
+    fallback_count = 0
+    start_time = time.time()
 
     try:
         pending_news = (
@@ -257,10 +261,26 @@ def analyze_pending_news(limit: int = 50) -> int:
             .limit(limit)
             .all()
         )
+        logger.info("[AI분석] 대상 뉴스 %s건 (limit=%s)", len(pending_news), limit)
 
         for news in pending_news:
             sector = db.query(models.Sector).filter(models.Sector.id == news.sector_id).first()
             sector_name = sector.name if sector else "일반"
+            clean_text = preprocess_news(news.title or "", news.content or "")
+
+            if not clean_text or is_low_information_article(clean_text):
+                news.sentiment_score = 0.0
+                news.sentiment_label = "neutral"
+                news.ai_summary = LOW_INFO_SUMMARY
+                try:
+                    db.commit()
+                    processed_count += 1
+                    low_info_count += 1
+                    logger.info("[AI분석] 저품질 기사 중립 처리 news_id=%s", news.id)
+                except Exception as exc:
+                    db.rollback()
+                    logger.exception("[AI분석] 저품질 기사 저장 실패. news_id=%s error=%s", news.id, exc)
+                continue
 
             try:
                 score, label, summary = analyze_news_item(news, sector_name)
@@ -268,6 +288,7 @@ def analyze_pending_news(limit: int = 50) -> int:
                 logger.warning("[AI분석] GPT 분석 실패. 휴리스틱 fallback 사용. news_id=%s error=%s", news.id, exc)
                 try:
                     score, label, summary = heuristic_fallback_analysis(news, sector_name)
+                    fallback_count += 1
                 except Exception as fallback_exc:
                     db.rollback()
                     logger.exception("[AI분석] fallback 분석도 실패했습니다. news_id=%s error=%s", news.id, fallback_exc)
@@ -283,6 +304,14 @@ def analyze_pending_news(limit: int = 50) -> int:
                 db.rollback()
                 logger.exception("[AI분석] DB 저장 실패. news_id=%s error=%s", news.id, exc)
 
+        elapsed = round(time.time() - start_time, 2)
+        logger.info(
+            "[AI분석] 완료: 처리=%s건, 저품질중립=%s건, fallback=%s건, 소요=%s초",
+            processed_count,
+            low_info_count,
+            fallback_count,
+            elapsed,
+        )
         return processed_count
     finally:
         db.close()

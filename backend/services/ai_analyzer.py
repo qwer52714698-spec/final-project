@@ -17,10 +17,41 @@ HTML_TAG_RE = re.compile(r"<[^>]+>")
 MULTISPACE_RE = re.compile(r"\s+")
 NON_TEXT_RE = re.compile(r"[^\w\s가-힣.,!?%:/()-]")
 JSON_BLOCK_RE = re.compile(r"\{.*\}", re.DOTALL)
-REQUEST_TIMEOUT = 30
 MAX_CONTENT_LENGTH = 3000
 MAX_SUMMARY_LENGTH = 300
 RETRY_DELAYS = (1, 2)
+LOW_INFO_MIN_LENGTH = 80
+SHORT_ARTICLE_LENGTH = 180
+MAX_STRONG_SCORE = 0.6
+LOW_RELEVANCE_SCORE_CAP = 0.1
+LOW_INFO_SUMMARY = "본문 정보가 부족해 중립적으로 처리했습니다."
+LOW_RELEVANCE_SUMMARY = "투자 영향이 낮은 기사로 판단해 중립적으로 처리했습니다."
+
+LOW_INFO_PATTERNS = (
+    "기자명",
+    "입력",
+    "수정",
+    "댓글 0",
+    "공유하기",
+    "기사검색",
+    "로그인",
+    "페이스북",
+    "카카오톡",
+    "url 복사",
+    "글자크기",
+    "구독 +",
+)
+
+LOW_RELEVANCE_PATTERNS = (
+    "참배",
+    "공모전",
+    "행사",
+    "사진",
+    "출마",
+    "기자회견",
+    "방문",
+    "개최",
+)
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +69,7 @@ def build_analysis_prompt(news: models.News, sector_name: str) -> str:
     content_text = preprocess_news(news.title or "", news.content or "")
     return f"""
 너는 한국 주식 뉴스 감성 분석 AI다.
-아래 뉴스를 읽고 감성 점수, 감성 라벨, 요약을 JSON 하나로만 반환하라.
+아래 뉴스를 읽고 투자 관점 기준의 감성 점수, 감성 라벨, 요약을 JSON 하나로만 반환하라.
 
 목표:
 - sentiment_score: -1.0 ~ 1.0 범위의 감성 점수
@@ -46,10 +77,14 @@ def build_analysis_prompt(news: models.News, sector_name: str) -> str:
 - summary: 1~2문장 한국어 요약
 
 규칙:
-1. 감성 평가는 실제 투자자 관점에서 뉴스가 해당 섹터에 미치는 영향을 기준으로 판단한다.
-2. score가 0.15 초과면 positive, -0.15 미만이면 negative, 그 사이는 neutral에 가깝게 판단한다.
-3. 요약은 핵심 사실과 시장 의미를 짧게 정리한다.
-4. 설명문 없이 JSON 객체만 출력한다.
+1. 감성 평가는 실제 투자자 관점에서 뉴스가 해당 섹터의 업황, 실적, 수주, 규제, 비용, 경쟁력에 미치는 영향을 기준으로 판단한다.
+2. 단순 행사, 정치 일정, 사진 기사, 인사 기사, 정보 부족 기사라면 neutral에 가깝게 판단한다.
+3. 기사 본문 정보가 부족하거나 제목만으로 판단해야 하는 경우 과도한 긍정/부정 해석을 하지 않는다.
+4. 점수는 보수적으로 부여한다. 매우 강한 호재/악재가 명확하지 않다면 절대값을 크게 주지 않는다.
+5. AI, 산업, 기술 키워드가 포함되어 있어도 실제 투자 영향이 약하면 neutral로 판단한다.
+6. score가 0.15 초과면 positive, -0.15 미만이면 negative, 그 사이는 neutral에 가깝게 판단한다.
+7. 요약은 기사 핵심 사실과 투자 관점을 함께 반영해 짧게 정리한다.
+8. 설명문 없이 JSON 객체만 출력한다.
 
 JSON 스키마:
 {{
@@ -137,6 +172,36 @@ def normalize_summary(value: Any, fallback_text: str) -> str:
     return fallback_text[:MAX_SUMMARY_LENGTH] if fallback_text else "분석 완료"
 
 
+def is_low_information_article(clean_text: str) -> bool:
+    text_lower = clean_text.lower()
+    if len(clean_text) < LOW_INFO_MIN_LENGTH:
+        return True
+
+    pattern_hits = sum(pattern.lower() in text_lower for pattern in LOW_INFO_PATTERNS)
+    if pattern_hits >= 2:
+        return True
+
+    return False
+
+
+def is_low_relevance_article(title: str, clean_text: str) -> bool:
+    combined = f"{title} {clean_text}".lower()
+    return any(pattern.lower() in combined for pattern in LOW_RELEVANCE_PATTERNS)
+
+
+def adjust_score(score: float, clean_text: str, low_relevance: bool) -> float:
+    adjusted = score
+
+    if len(clean_text) < SHORT_ARTICLE_LENGTH:
+        adjusted *= 0.6
+
+    if low_relevance:
+        adjusted = max(min(adjusted, LOW_RELEVANCE_SCORE_CAP), -LOW_RELEVANCE_SCORE_CAP)
+
+    adjusted = max(min(adjusted, MAX_STRONG_SCORE), -MAX_STRONG_SCORE)
+    return round(adjusted, 3)
+
+
 def heuristic_fallback_analysis(news: models.News, sector_name: str) -> tuple[float, str, str]:
     clean_text = preprocess_news(news.title or "", news.content or "")
     positive_tokens = ("상승", "호재", "확대", "성장", "개선", "수주", "실적")
@@ -163,19 +228,24 @@ def analyze_news_item(news: models.News, sector_name: str) -> tuple[float, str, 
     clean_text = preprocess_news(news.title or "", news.content or "")
     if not clean_text:
         return 0.0, "neutral", "본문이 비어 있어 기본 분석 결과를 저장했습니다."
+    if is_low_information_article(clean_text):
+        return 0.0, "neutral", LOW_INFO_SUMMARY
+
+    low_relevance = is_low_relevance_article(news.title or "", clean_text)
+    if low_relevance:
+        return 0.0, "neutral", LOW_RELEVANCE_SUMMARY
 
     prompt = build_analysis_prompt(news, sector_name)
-    # call_gemini 대신 call_gpt 호출
     result = call_gpt(prompt)
 
     score = clamp(result.get("sentiment_score"), -1.0, 1.0, 0.0)
+    score = adjust_score(score, clean_text, low_relevance=low_relevance)
     label = normalize_label(result.get("sentiment_label"), score)
     summary = normalize_summary(result.get("summary"), clean_text)
     return score, label, summary
 
 
 def analyze_pending_news(limit: int = 50) -> int:
-    # GPT 사용 시에도 로직은 동일
     db: Session = SessionLocal()
     processed_count = 0
 

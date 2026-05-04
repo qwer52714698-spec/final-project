@@ -42,3 +42,45 @@ def get_sector_stats(db: Session):
         func.count(models.News.id).label("news_count"),
         func.avg(models.News.sentiment_score).label("avg_sentiment")
     ).join(models.News).group_by(models.Sector.name).all()
+
+
+# Analysis draft helpers
+def build_analysis_payload(result) -> schemas.AnalysisCreate:
+    return schemas.AnalysisCreate(
+        news_id=result.news_id,
+        sentiment_score=result.sentiment_score,
+        sentiment_label=result.sentiment_label,
+        summary=result.summary,
+        keywords=getattr(result, "keywords", []) or [],
+        event_type=getattr(result, "event_type", None),
+        impact_score=getattr(result, "impact_score", None),
+    )
+
+
+def create_analysis(db: Session, analysis_data: schemas.AnalysisCreate):
+    """
+    Draft helper for future analysis-table migration.
+    Runtime writes are intentionally disabled until models.Analysis is finalized.
+    """
+    if not hasattr(models, "Analysis"):
+        raise RuntimeError("models.Analysis is not defined yet.")
+
+    db_analysis = models.Analysis(
+        news_id=analysis_data.news_id,
+        sentiment_score=analysis_data.sentiment_score,
+        sentiment_label=analysis_data.sentiment_label,
+        summary=analysis_data.summary,
+        keywords=json.dumps(analysis_data.keywords, ensure_ascii=False),
+        event_type=analysis_data.event_type,
+        impact_score=analysis_data.impact_score,
+    )
+    db.add(db_analysis)
+    db.commit()
+    db.refresh(db_analysis)
+    return db_analysis
+
+
+def get_analysis_by_news_id(db: Session, news_id: int):
+    if not hasattr(models, "Analysis"):
+        raise RuntimeError("models.Analysis is not defined yet.")
+    return db.query(models.Analysis).filter(models.Analysis.news_id == news_id).first()

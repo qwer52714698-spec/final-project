@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from datetime import datetime
 from typing import Optional, List
 
@@ -69,6 +69,30 @@ class NewsResponse(BaseModel):
     ai_summary: Optional[str]
     collected_at: datetime
     sector: Optional[SectorResponse]
+
+    model_config = {"from_attributes": True}
+
+
+# ── Analysis (draft) ─────────────────────────────────────────────────────────
+
+class AnalysisBase(BaseModel):
+    news_id: int
+    sentiment_score: float
+    sentiment_label: str
+    summary: str
+    keywords: List[str] = Field(default_factory=list)
+    event_type: Optional[str] = None
+    impact_score: Optional[float] = None
+
+
+class AnalysisCreate(AnalysisBase):
+    pass
+
+
+class AnalysisResponse(AnalysisBase):
+    id: int
+    created_at: datetime
+    updated_at: datetime
 
     model_config = {"from_attributes": True}
 

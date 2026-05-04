@@ -4,6 +4,8 @@ import json
 import logging
 import re
 import time
+from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Any
 
 from openai import OpenAI  # Gemini 대신 OpenAI 사용
@@ -55,6 +57,19 @@ LOW_RELEVANCE_PATTERNS = (
 )
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class AnalysisResult:
+    news_id: int
+    sentiment_score: float
+    sentiment_label: str
+    summary: str
+    keywords: list[str] = field(default_factory=list)
+    event_type: str | None = None
+    impact_score: float | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
 
 def preprocess_news(title: str, content: str | None) -> str:
@@ -225,16 +240,40 @@ def heuristic_fallback_analysis(news: models.News, sector_name: str) -> tuple[fl
     return round(score, 3), label, summary
 
 
-def analyze_news_item(news: models.News, sector_name: str) -> tuple[float, str, str]:
+def _build_result(
+    news: models.News,
+    sentiment_score: float,
+    sentiment_label: str,
+    summary: str,
+    *,
+    keywords: list[str] | None = None,
+    event_type: str | None = None,
+    impact_score: float | None = None,
+) -> AnalysisResult:
+    now = datetime.utcnow()
+    return AnalysisResult(
+        news_id=news.id,
+        sentiment_score=sentiment_score,
+        sentiment_label=sentiment_label,
+        summary=summary,
+        keywords=keywords or [],
+        event_type=event_type,
+        impact_score=impact_score,
+        created_at=now,
+        updated_at=now,
+    )
+
+
+def analyze_news_result(news: models.News, sector_name: str) -> AnalysisResult:
     clean_text = preprocess_news(news.title or "", news.content or "")
     if not clean_text:
-        return 0.0, "neutral", "본문이 비어 있어 기본 분석 결과를 저장했습니다."
+        return _build_result(news, 0.0, "neutral", "본문이 비어 있어 기본 분석 결과를 저장했습니다.")
     if is_low_information_article(clean_text):
-        return 0.0, "neutral", LOW_INFO_SUMMARY
+        return _build_result(news, 0.0, "neutral", LOW_INFO_SUMMARY)
 
     low_relevance = is_low_relevance_article(news.title or "", clean_text)
     if low_relevance:
-        return 0.0, "neutral", LOW_RELEVANCE_SUMMARY
+        return _build_result(news, 0.0, "neutral", LOW_RELEVANCE_SUMMARY)
 
     prompt = build_analysis_prompt(news, sector_name)
     result = call_gpt(prompt)
@@ -243,7 +282,12 @@ def analyze_news_item(news: models.News, sector_name: str) -> tuple[float, str, 
     score = adjust_score(score, clean_text, low_relevance=low_relevance)
     label = normalize_label(result.get("sentiment_label"), score)
     summary = normalize_summary(result.get("summary"), clean_text)
-    return score, label, summary
+    return _build_result(news, score, label, summary)
+
+
+def analyze_news_item(news: models.News, sector_name: str) -> tuple[float, str, str]:
+    result = analyze_news_result(news, sector_name)
+    return result.sentiment_score, result.sentiment_label, result.summary
 
 
 def analyze_pending_news(limit: int = BATCH_LIMIT) -> int:
@@ -269,9 +313,10 @@ def analyze_pending_news(limit: int = BATCH_LIMIT) -> int:
             clean_text = preprocess_news(news.title or "", news.content or "")
 
             if not clean_text or is_low_information_article(clean_text):
-                news.sentiment_score = 0.0
-                news.sentiment_label = "neutral"
-                news.ai_summary = LOW_INFO_SUMMARY
+                analysis = _build_result(news, 0.0, "neutral", LOW_INFO_SUMMARY)
+                news.sentiment_score = analysis.sentiment_score
+                news.sentiment_label = analysis.sentiment_label
+                news.ai_summary = analysis.summary
                 try:
                     db.commit()
                     processed_count += 1
@@ -283,11 +328,12 @@ def analyze_pending_news(limit: int = BATCH_LIMIT) -> int:
                 continue
 
             try:
-                score, label, summary = analyze_news_item(news, sector_name)
+                analysis = analyze_news_result(news, sector_name)
             except Exception as exc:
                 logger.warning("[AI분석] GPT 분석 실패. 휴리스틱 fallback 사용. news_id=%s error=%s", news.id, exc)
                 try:
                     score, label, summary = heuristic_fallback_analysis(news, sector_name)
+                    analysis = _build_result(news, score, label, summary)
                     fallback_count += 1
                 except Exception as fallback_exc:
                     db.rollback()
@@ -295,9 +341,9 @@ def analyze_pending_news(limit: int = BATCH_LIMIT) -> int:
                     continue
 
             try:
-                news.sentiment_score = score
-                news.sentiment_label = label
-                news.ai_summary = summary
+                news.sentiment_score = analysis.sentiment_score
+                news.sentiment_label = analysis.sentiment_label
+                news.ai_summary = analysis.summary
                 db.commit()
                 processed_count += 1
             except Exception as exc:

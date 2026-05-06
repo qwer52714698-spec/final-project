@@ -42,3 +42,16 @@ jobs:
         run: |
           # 루트 폴더 기준으로 실행 경로 지정
           python -m backend.services.news_collector
+      - name: Create Summary Report
+        if: success()
+        run: |
+                # 파이썬이 기록한 숫자 읽기
+                COUNT=$(cat collect_result.txt)
+                
+                echo "### 🗞️ 오늘의 뉴스 수집 리포트" >> $GITHUB_STEP_SUMMARY
+                echo "| 항목 | 결과 |" >> $GITHUB_STEP_SUMMARY
+                echo "| :--- | :--- |" >> $GITHUB_STEP_SUMMARY
+                echo "| **수집 상태** | 성공 ✅ |" >> $GITHUB_STEP_SUMMARY
+                echo "| **신규 수집 개수** | **$COUNT 개** |" >> $GITHUB_STEP_SUMMARY
+                echo "| **실행 시간** | $(date) |" >> $GITHUB_STEP_SUMMARY
+                echo "" >> $GITHUB_STEP_SUMMARY

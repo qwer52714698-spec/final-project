@@ -110,6 +110,8 @@ def collect_news_for_sector(sector_id: int, sector_name: str):
 
 def collect_all_news():
     db: Session = SessionLocal()
+    total_collected = 0  # 📊 오늘 수집한 총 개수 카운터 추가
+    
     try:
         sectors = db.query(models.Sector).all()
         sector_list = [(s.id, s.name) for s in sectors]
@@ -117,9 +119,26 @@ def collect_all_news():
         db.close()
 
     for sector_id, sector_name in sector_list:
+        # 각 섹터별로 몇 개 수집했는지 반환받도록 로직을 살짝 수정해야 하지만,
+        # 일단 전체 DB 조회를 통해 오늘 날짜 데이터를 세는 방식이 가장 정확합니다.
         collect_news_for_sector(sector_id, sector_name)
+
+    # 🏁 최종 결과 집계 (오늘 날짜로 저장된 뉴스 개수 확인)
+    db = SessionLocal()
+    today_count = db.query(models.News).filter(
+        models.News.published_at >= datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    ).count()
+    db.close()
+
+    print(f"\n==========================================")
+    print(f"✅ 모든 섹터 뉴스 수집 및 분석 완료!")
+    print(f"📊 오늘 신규 수집된 뉴스: 총 {today_count}개")
+    print(f"==========================================")
+
+    # 📝 깃허브 Actions에서 읽을 수 있게 파일로 기록 (이게 핵심!)
+    with open("collect_result.txt", "w") as f:
+        f.write(str(today_count))
 
 if __name__ == "__main__":
     print("🚀 뉴스 수집 및 GPT-4o-mini 분석 엔진 가동...")
     collect_all_news()
-    print("✨ 모든 섹터 뉴스 수집 및 분석 완료!")

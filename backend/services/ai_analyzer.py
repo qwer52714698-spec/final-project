@@ -35,14 +35,32 @@ LOW_INFO_PATTERNS = (
     "입력",
     "수정",
     "댓글 0",
+    "댓글수",
     "공유하기",
+    "기사공유하기",
     "기사검색",
     "로그인",
     "페이스북",
     "카카오톡",
     "url 복사",
+    "url복사",
     "글자크기",
     "구독 +",
+    "북마크",
+    "프린트",
+    "다른기사 보기",
+    "기사스크랩하기",
+    "등록순",
+    "최신순",
+    "추천순",
+    "답글순",
+    "본문 글씨",
+    "광고문의",
+    "제보",
+    "회원가입",
+    "정기구독자",
+    "e book 보기",
+    "바로가기",
 )
 
 LOW_RELEVANCE_PATTERNS = (
@@ -54,6 +72,49 @@ LOW_RELEVANCE_PATTERNS = (
     "기자회견",
     "방문",
     "개최",
+    "예비후보",
+    "포토뉴스",
+    "어린이날",
+    "축제",
+    "학술대회",
+    "문화제",
+    "공청회",
+    "시민단체",
+    "저널리즘",
+    "k 팝",
+    "k-팝",
+    "드라마",
+    "전통 리듬",
+)
+
+INVESTMENT_SIGNAL_PATTERNS = (
+    "실적",
+    "영업익",
+    "매출",
+    "수주",
+    "계약",
+    "합병",
+    "투자",
+    "인수",
+    "규제",
+    "배당",
+    "증설",
+    "출시",
+    "공급",
+    "시장",
+    "점유율",
+    "수요",
+    "가격",
+    "원가",
+    "정책",
+    "가이던스",
+    "성장",
+    "적자",
+    "흑자",
+    "판결",
+    "노조",
+    "인플레이션",
+    "금리",
 )
 
 logger = logging.getLogger(__name__)
@@ -197,12 +258,36 @@ def is_low_information_article(clean_text: str) -> bool:
     if pattern_hits >= 2:
         return True
 
+    if len(clean_text) < 220 and pattern_hits >= 1:
+        return True
+
+    if len(clean_text.split()) < 25 and pattern_hits >= 1:
+        return True
+
     return False
 
 
 def is_low_relevance_article(title: str, clean_text: str) -> bool:
     combined = f"{title} {clean_text}".lower()
-    return any(pattern.lower() in combined for pattern in LOW_RELEVANCE_PATTERNS)
+    has_low_relevance_signal = any(pattern.lower() in combined for pattern in LOW_RELEVANCE_PATTERNS)
+    has_investment_signal = any(pattern.lower() in combined for pattern in INVESTMENT_SIGNAL_PATTERNS)
+
+    if has_low_relevance_signal and not has_investment_signal:
+        return True
+
+    government_like_patterns = (
+        "시장 예비후보",
+        "군수",
+        "도지사",
+        "입법",
+        "학회",
+        "행사",
+        "큰잔치",
+    )
+    if any(pattern in combined for pattern in government_like_patterns) and not has_investment_signal:
+        return True
+
+    return False
 
 
 def adjust_score(score: float, clean_text: str, low_relevance: bool) -> float:

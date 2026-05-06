@@ -2,9 +2,9 @@ name: Daily News Collector
 
 on:
   schedule:
-    # 매일 한국 시간 오전 8시 (UTC 23:00)에 실행
-    - cron: '0 23 * * *'
-  workflow_dispatch: # 직접 버튼 눌러서 실행하고 싶을 때 사용
+    # 매일 한국 시간 오전 9시 (UTC 00:00)에 실행
+    - cron: '0 0 * * *'
+  workflow_dispatch: # 버튼 눌러서 즉시 실행 가능하게 설정
 
 jobs:
   collect:
@@ -22,16 +22,23 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r backend/requirements.txt
+          # 최상단에 있는 requirements.txt를 바로 설치합니다.
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
       - name: Run news collector
         env:
-          # 1단계에서 등록한 비밀 키들을 파이썬이 읽을 수 있게 연결
+          # 알려주신 .env 항목들을 깃허브 Secrets와 1:1로 매칭
+          DB_USERNAME: ${{ secrets.DB_USERNAME }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
           NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
-          PYTHONPATH: ${{ github.workspace }}/backend # 경로 문제 해결
+          # 파이썬이 backend 폴더 내부의 모듈을 찾을 수 있게 경로 지정
+          PYTHONPATH: ${{ github.workspace }}
         run: |
+          # 루트 폴더 기준으로 실행 경로 지정
           python -m backend.services.news_collector

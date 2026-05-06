@@ -38,7 +38,7 @@ jobs:
           NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
           NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
           # 파이썬이 backend 폴더 내부의 모듈을 찾을 수 있게 경로 지정
-          PYTHONPATH: ${{ github.workspace }}
+          PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/backend
         run: |
           # 루트 폴더 기준으로 실행 경로 지정
           python -m backend.services.news_collector

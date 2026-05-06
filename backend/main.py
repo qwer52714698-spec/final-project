@@ -2,8 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database import engine
 import models
-# 각 기능별 라우터 가져오기
 from routers import news, stocks
+from routers import comments
 
 # DB 테이블 생성 (서버 켤 때마다 모델 확인)
 models.Base.metadata.create_all(bind=engine)
@@ -17,7 +17,7 @@ app = FastAPI(
 # CORS 설정: 리액트 포트(3000, 5173 등) 모두 허용하도록 넉넉히 설정
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # 개발 단계에서는 전체 허용이 편합니다
+    allow_origins=["*"], 
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -27,6 +27,7 @@ app.add_middleware(
 app.include_router(news.router)
 app.include_router(stocks.router)
 # app.include_router(auth.router) # auth.py가 준비되면 주석 해제
+app.include_router(comments.router)
 
 @app.get("/")
 def read_root():
@@ -35,3 +36,4 @@ def read_root():
         "message": "백엔드 서버가 성공적으로 가동되었습니다!",
         "engine": "GPT-4o-mini"
     }
+    

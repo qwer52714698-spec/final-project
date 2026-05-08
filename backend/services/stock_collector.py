@@ -6,15 +6,15 @@ from database import SessionLocal
 import models
 
 SECTORS_META = {
-    "반도체":    {"description": "메모리·시스템반도체·파운드리·장비 기업", "icon": "💾"},
-    "2차전지":   {"description": "배터리·양극재·전해질 등 전기차 핵심 소재", "icon": "🔋"},
-    "자동차":    {"description": "완성차·부품·자율주행 관련 기업", "icon": "🚗"},
-    "AI/IT":     {"description": "인공지능·플랫폼·소프트웨어·통신 기업", "icon": "🤖"},
+    "반도체":     {"description": "메모리·시스템반도체·파운드리·장비 기업", "icon": "💾"},
+    "2차전지":    {"description": "배터리·양극재·전해질 등 전기차 핵심 소재", "icon": "🔋"},
+    "자동차":     {"description": "완성차·부품·자율주행 관련 기업", "icon": "🚗"},
+    "AI/IT":      {"description": "인공지능·플랫폼·소프트웨어·통신 기업", "icon": "🤖"},
     "바이오/제약": {"description": "제약·바이오·의료기기 기업", "icon": "💊"},
-    "금융":      {"description": "은행·증권·보험·카드 기업", "icon": "🏦"},
+    "금융":       {"description": "은행·증권·보험·카드 기업", "icon": "🏦"},
     "에너지/화학": {"description": "정유·화학·신재생에너지·소재 기업", "icon": "⚡"},
-    "산업재":    {"description": "건설·철강·조선·기계·항공 기업", "icon": "🏭"},
-    "소비재":    {"description": "식품·유통·패션·생활용품 기업", "icon": "🛒"},
+    "산업재":     {"description": "건설·철강·조선·기계·항공 기업", "icon": "🏭"},
+    "소비재":     {"description": "식품·유통·패션·생활용품 기업", "icon": "🛒"},
 }
 
 SECTOR_STOCKS = {
@@ -146,14 +146,12 @@ SECTOR_STOCKS = {
     ],
 }
 
-
 def ensure_sectors_exist(db: Session):
     existing = {s.name for s in db.query(models.Sector).all()}
     for name, meta in SECTORS_META.items():
         if name not in existing:
             db.add(models.Sector(name=name, **meta))
     db.commit()
-
 
 def ensure_stocks_exist(db: Session):
     sector_map = {s.name: s for s in db.query(models.Sector).all()}
@@ -177,7 +175,6 @@ def ensure_stocks_exist(db: Session):
     db.commit()
     if added:
         print(f"[종목] 신규 {added}개 추가")
-
 
 def _fetch_prices_batch(symbols: list, start: str, end: str) -> dict:
     if not symbols:
@@ -210,9 +207,9 @@ def _fetch_prices_batch(symbols: list, start: str, end: str) -> dict:
         print(f"[주가수집] 배치 오류: {e}")
         return {}
 
-
 def collect_stock_prices():
     db: Session = SessionLocal()
+    total_new_records = 0
     try:
         ensure_sectors_exist(db)
         ensure_stocks_exist(db)
@@ -272,14 +269,23 @@ def collect_stock_prices():
                     if new_prices:
                         db.bulk_save_objects(new_prices)
                         db.commit()
-                        print(f"[주가수집] {stock.name}: {len(new_prices)}건")
+                        count = len(new_prices)
+                        total_new_records += count
+                        print(f"[주가수집] {stock.name}: {count}건")
                 except Exception as e:
                     db.rollback()
-                    print(f"[주가수집] {symbol} 오류: {e}")
+                    print(f"[주가수집] {symbol} 개별 오류: {e}")
 
-        print("[주가수집] 완료")
+        # ✅ 모든 반복문이 끝난 뒤(try 블록 내부)에 실행됩니다.
+        print(f"[주가수집] 완료! 오늘 총 {total_new_records}건의 데이터가 업데이트되었습니다.")
+        with open("stock_collect_result.txt", "w") as f:
+            f.write(str(total_new_records))
+
     except Exception as e:
         db.rollback()
         print(f"[주가수집] 전체 오류: {e}")
     finally:
         db.close()
+
+if __name__ == "__main__":
+    collect_stock_prices()

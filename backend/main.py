@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database import engine
 import models
-from routers import news, stocks
+from routers import news, stocks, comments, auth
 from routers import comments
 
 # DB 테이블 생성 (서버 켤 때마다 모델 확인)
@@ -26,7 +26,7 @@ app.add_middleware(
 #  분산되어 있던 기능(Router)들을 하나로 합체
 app.include_router(news.router)
 app.include_router(stocks.router)
-# app.include_router(auth.router) # auth.py가 준비되면 주석 해제
+app.include_router(auth.router) # auth.py가 준비되면 주석 해제
 app.include_router(comments.router)
 
 @app.get("/")

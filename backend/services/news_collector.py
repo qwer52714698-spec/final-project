@@ -135,7 +135,7 @@ def collect_all_news():
     print(f"📊 오늘 신규 수집된 뉴스: 총 {today_count}개")
     print(f"==========================================")
 
-    # 📝 깃허브 Actions에서 읽을 수 있게 파일로 기록 (이게 핵심!)
+    # 📝 깃허브 Actions에서 읽을 수 있게 파일로 기록
     with open("collect_result.txt", "w") as f:
         f.write(str(today_count))
 

@@ -36,8 +36,8 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
           NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
-          # 💡 [중요] 루트 폴더만 지정하면 python -m backend... 형식을 완벽히 인식합니다.
-          PYTHONPATH: ${{ github.workspace }}
+        
+          PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/backend
         run: |
           echo "시작: 뉴스 수집"
           python -m backend.services.news_collector

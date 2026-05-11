@@ -85,6 +85,7 @@ LOW_RELEVANCE_PATTERNS = (
     "k-팝",
     "드라마",
     "전통 리듬",
+    "교통망 확충 계획 발표",
 )
 
 INVESTMENT_SIGNAL_PATTERNS = (
@@ -274,6 +275,19 @@ def normalize_event_type(value: Any, title: str, clean_text: str) -> str:
     if event_type in EVENT_TYPE_CANDIDATES:
         return event_type
     combined = f"{title} {clean_text}".lower()
+    political_admin_tokens = (
+        "예비후보",
+        "시장 예비후보",
+        "군수",
+        "도지사",
+        "교통망 확충 계획",
+        "정책 공약",
+        "기자회견",
+        "공청회",
+        "시민단체",
+    )
+    if any(token in combined for token in political_admin_tokens):
+        return "other"
     if any(token in combined for token in ("영업익", "매출", "실적", "흑자", "적자", "가이던스")):
         return "earnings"
     if any(token in combined for token in ("금리", "물가", "인플레이션", "cpi", "환율")):
@@ -371,6 +385,11 @@ def build_low_info_result(news: models.News, clean_text: str) -> AnalysisResult:
     sentiment_label = normalize_label(sentiment_score, sentiment_score)
 
     impact_score = base_impact_by_event.get(event_type, 0.0)
+    if event_type == "other" and any(
+        token in combined
+        for token in ("예비후보", "시장", "군수", "도지사", "교통망", "공청회", "시민단체")
+    ):
+        impact_score = 0.1
     if impact_score == 0.0:
         summary = LOW_INFO_SUMMARY
     else:
@@ -424,6 +443,7 @@ def is_low_relevance_article(title: str, clean_text: str) -> bool:
         "학회",
         "행사",
         "큰잔치",
+        "교통망 확충 계획",
     )
     if any(pattern in combined for pattern in government_like_patterns) and not has_investment_signal:
         return True

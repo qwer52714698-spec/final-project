@@ -1,10 +1,9 @@
-name: Daily News Collector
+name: Daily News & Stock Collector
 
 on:
   schedule:
-    # 매일 한국 시간 오전 9시 (UTC 00:00)에 실행
-    - cron: '7 0 * * *'
-  workflow_dispatch: # 버튼 눌러서 즉시 실행 가능하게 설정
+    - cron: '7 0 * * *' # 매일 한국 시간 09:07 실행
+  workflow_dispatch:
 
 jobs:
   collect:
@@ -22,12 +21,12 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          # 최상단에 있는 requirements.txt를 바로 설치합니다.
+          pip install yfinance pandas # 필수 라이브러리 명시
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-      - name: Run news collector
+      - name: Run Data Collection
         env:
-          # 알려주신 .env 항목들을 깃허브 Secrets와 1:1로 매칭
+          # 데이터베이스 및 API 키 설정
           DB_USERNAME: ${{ secrets.DB_USERNAME }}
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           DB_HOST: ${{ secrets.DB_HOST }}
@@ -37,48 +36,24 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
           NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
-          # 파이썬이 backend 폴더 내부의 모듈을 찾을 수 있게 경로 지정
+        
           PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/backend
         run: |
-          # 루트 폴더 기준으로 실행 경로 지정
+          echo "시작: 뉴스 수집"
           python -m backend.services.news_collector
-      - name: Create Summary Report
-        if: success()
-        run: |
-                # 파이썬이 기록한 숫자 읽기
-                COUNT=$(cat collect_result.txt)
-                
-                echo "### 🗞️ 오늘의 뉴스 수집 리포트" >> $GITHUB_STEP_SUMMARY
-                echo "| 항목 | 결과 |" >> $GITHUB_STEP_SUMMARY
-                echo "| :--- | :--- |" >> $GITHUB_STEP_SUMMARY
-                echo "| **수집 상태** | 성공 ✅ |" >> $GITHUB_STEP_SUMMARY
-                echo "| **신규 수집 개수** | **$COUNT 개** |" >> $GITHUB_STEP_SUMMARY
-                echo "| **실행 시간** | $(date) |" >> $GITHUB_STEP_SUMMARY
-                echo "" >> $GITHUB_STEP_SUMMARY
-      - name: Run news collector
-        # ... (기존 설정 유지) ...
-        run: python -m backend.services.news_collector
-
-      - name: Run stock collector
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/backend
-        run: |
-          # yfinance와 pandas가 필요하니 설치 확인
-          pip install yfinance pandas
+          echo "시작: 주가 수집"
           python -m backend.services.stock_collector
 
-      - name: Create Summary Report
-        if: success()
+      - name: Create Integrated Summary Report
+        if: always() # 실패하더라도 어디까지 됐는지 리포트 생성
         run: |
-          # 뉴스 수집 결과와 주가 수집 결과를 모두 읽어옴
           NEWS_COUNT=$(cat collect_result.txt || echo "0")
           STOCK_COUNT=$(cat stock_collect_result.txt || echo "0")
           
-          echo "###  통합 수집 리포트 ($(date +'%Y-%m-%d'))" >> $GITHUB_STEP_SUMMARY
+          echo "### 🚀 통합 수집 리포트 ($(date +'%Y-%m-%d'))" >> $GITHUB_STEP_SUMMARY
           echo "| 수집 항목 | 결과 |" >> $GITHUB_STEP_SUMMARY
           echo "| :--- | :--- |" >> $GITHUB_STEP_SUMMARY
           echo "| **신규 뉴스 기사** | $NEWS_COUNT 개 |" >> $GITHUB_STEP_SUMMARY
           echo "| **업데이트된 주가** | $STOCK_COUNT 건 |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "> 모든 데이터가 성공적으로 Supabase DB에 저장되었습니다." >> $GITHUB_STEP_SUMMARY          
+          echo "작업 완료 시간: $(date)" >> $GITHUB_STEP_SUMMARY 

@@ -1,12 +1,15 @@
 import { useState, useEffect } from 'react'
 import { newsApi } from '../api/newsApi'
 import NewsCard from '../components/NewsCard'
+import CommentList from '../components/CommentList'
+import CommentForm from '../components/CommentForm'
 
 function AllNews() {
   const [news, setNews] = useState([])
   const [sectors, setSectors] = useState([])
   const [selectedSector, setSelectedSector] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [selectedNews, setSelectedNews] = useState(null) // 선택된 뉴스 (댓글 보기용)
 
   useEffect(() => {
     loadSectors()
@@ -46,10 +49,75 @@ function AllNews() {
     }
   }
 
+  const handleNewsClick = (newsItem) => {
+    setSelectedNews(newsItem)
+  }
+
+  const handleBackToList = () => {
+    setSelectedNews(null)
+  }
+
   if (loading) {
     return <div className="text-center py-20">로딩 중...</div>
   }
 
+  // 뉴스 상세보기 + 댓글
+  if (selectedNews) {
+    return (
+      <div>
+        <button
+          onClick={handleBackToList}
+          className="mb-6 text-blue-600 hover:text-blue-800 font-medium"
+        >
+          ← 목록으로 돌아가기
+        </button>
+
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <h1 className="text-2xl font-bold mb-4">{selectedNews.title}</h1>
+
+          {selectedNews.ai_summary && (
+            <div className="bg-blue-50 p-4 rounded-lg mb-4">
+              <h3 className="font-semibold mb-2">📝 AI 요약</h3>
+              <p className="text-gray-700">{selectedNews.ai_summary}</p>
+            </div>
+          )}
+
+          {selectedNews.content && (
+            <div className="mb-4">
+              <p className="text-gray-700 whitespace-pre-wrap">{selectedNews.content}</p>
+            </div>
+          )}
+
+          <div className="flex justify-between items-center text-sm text-gray-500 border-t pt-4">
+            <span>{new Date(selectedNews.published_at).toLocaleDateString('ko-KR')}</span>
+            {selectedNews.url && (
+              <a 
+                href={selectedNews.url} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:underline"
+              >
+                원문 보기 →
+              </a>
+            )}
+          </div>
+        </div>
+
+        {/* 🆕 댓글 작성 폼 */}
+        <CommentForm 
+          newsId={selectedNews.id} 
+          onCommentAdded={() => {
+            setSelectedNews({...selectedNews})
+          }}
+        />
+
+        {/* 🆕 댓글 목록 */}
+        <CommentList key={selectedNews.id} newsId={selectedNews.id} />
+      </div>
+    )
+  }
+
+  // 뉴스 목록
   return (
     <div>
       <div className="flex items-center justify-between mb-8">
@@ -95,7 +163,9 @@ function AllNews() {
       ) : (
         <div className="space-y-4">
           {news.map(item => (
-            <NewsCard key={item.id} news={item} />
+            <div key={item.id} onClick={() => handleNewsClick(item)} className="cursor-pointer">
+              <NewsCard news={item} />
+            </div>
           ))}
         </div>
       )}

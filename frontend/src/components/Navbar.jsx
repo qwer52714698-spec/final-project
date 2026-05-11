@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import UserMenu from './UserMenu'
 
 function Navbar() {
   return (
@@ -8,13 +9,14 @@ function Navbar() {
           <Link to="/" className="text-xl font-bold text-blue-600">
             📈 주식 트렌드 예측
           </Link>
-          <div className="flex gap-6">
+          <div className="flex items-center gap-6">
             <Link to="/" className="text-gray-700 hover:text-blue-600 font-medium">
               대시보드
             </Link>
             <Link to="/news" className="text-gray-700 hover:text-blue-600 font-medium">
               전체 뉴스
             </Link>
+            <UserMenu />
           </div>
         </div>
       </div>

@@ -1,8 +1,10 @@
 import { useState } from 'react'
+import { useAuth } from '../contexts/AuthContext'
+import { commentsApi } from '../api/commentsApi'
 
 function CommentForm({ newsId, onCommentAdded }) {
+  const { isAuthenticated, token, user } = useAuth()
   const [content, setContent] = useState('')
-  const [isLoggedIn, setIsLoggedIn] = useState(false) // TODO: 실제 로그인 상태로 교체
   const [loading, setLoading] = useState(false)
 
   const handleSubmit = async (e) => {
@@ -13,25 +15,18 @@ function CommentForm({ newsId, onCommentAdded }) {
       return
     }
 
-    // TODO: 실제 로그인 토큰 가져오기
-    // const token = localStorage.getItem('token')
-    const token = 'dummy-token' // 임시
-
     setLoading(true)
     try {
-      // TODO: commentsApi 연동
-      // await commentsApi.createComment(newsId, content, token)
-
+      await commentsApi.createComment(newsId, content, token)
       alert('댓글이 작성되었습니다.')
       setContent('')
 
-      // 부모 컴포넌트에 댓글 목록 새로고침 요청
       if (onCommentAdded) {
         onCommentAdded()
       }
     } catch (error) {
       console.error('댓글 작성 실패:', error)
-      alert('댓글 작성에 실패했습니다. 로그인이 필요합니다.')
+      alert('댓글 작성에 실패했습니다.')
     } finally {
       setLoading(false)
     }
@@ -41,13 +36,20 @@ function CommentForm({ newsId, onCommentAdded }) {
     <div className="bg-white rounded-lg shadow-md p-6 mb-6">
       <h3 className="text-lg font-bold mb-4">💬 댓글 작성</h3>
 
-      {!isLoggedIn ? (
+      {!isAuthenticated ? (
         <div className="text-center py-8 text-gray-500">
           댓글을 작성하려면 로그인이 필요합니다.
-          {/* TODO: 로그인 버튼 추가 */}
+          <div className="mt-4">
+            <a href="/login" className="text-blue-600 hover:underline">
+              로그인하러 가기 →
+            </a>
+          </div>
         </div>
       ) : (
         <form onSubmit={handleSubmit}>
+          <div className="mb-3 text-sm text-gray-600">
+            <span className="font-medium">{user?.username}</span>님으로 댓글 작성
+          </div>
           <textarea
             value={content}
             onChange={(e) => setContent(e.target.value)}

@@ -3,7 +3,6 @@ from sqlalchemy.orm import relationship
 from database import Base
 from datetime import datetime
 
-
 class User(Base):
     __tablename__ = "users"
 
@@ -13,8 +12,8 @@ class User(Base):
     password_hash = Column(String(255), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    #posts = relationship("Post", back_populates="author", cascade="all, delete-orphan")
-    #comments = relationship("Comment", back_populates="author", cascade="all, delete-orphan")
+    # 🟢 주석 해제 및 관계 설정: 유저가 삭제되면 쓴 댓글도 삭제되도록 설정
+    comments = relationship("Comment", back_populates="author", cascade="all, delete-orphan")
 
 
 class Sector(Base):
@@ -44,6 +43,24 @@ class News(Base):
     collected_at = Column(DateTime, default=datetime.utcnow)
 
     sector = relationship("Sector", back_populates="news_items")
+    # 🟢 추가: 뉴스를 조회할 때 달린 댓글들을 바로 가져올 수 있게 연결
+    comments = relationship("Comment", back_populates="news", cascade="all, delete-orphan")
+
+
+# 🆕 신규 추가: 댓글 모델
+class Comment(Base):
+    __tablename__ = "comments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    content = Column(Text, nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False) # 작성자 ID
+    news_id = Column(Integer, ForeignKey("news.id"), nullable=False) # 뉴스 ID
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow) # 수정 시간 추가
+
+    # 관계 설정
+    author = relationship("User", back_populates="comments")
+    news = relationship("News", back_populates="comments")
 
 
 class Stock(Base):
@@ -72,4 +89,3 @@ class StockPrice(Base):
     volume = Column(BigInteger)
 
     stock = relationship("Stock", back_populates="prices")
-

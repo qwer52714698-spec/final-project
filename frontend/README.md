@@ -1,70 +1,160 @@
-# Getting Started with Create React App
+# 주식 트렌드 예측 에이전트 - Frontend
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+React + Vite + Tailwind CSS로 구성된 프론트엔드 프로젝트입니다.
 
-## Available Scripts
+## 📁 프로젝트 구조
 
-In the project directory, you can run:
+```
+stock-trend-frontend/
+├── index.html
+├── package.json
+├── vite.config.js
+├── tailwind.config.js
+├── postcss.config.js
+├── .env
+└── src/
+    ├── main.jsx
+    ├── App.jsx
+    ├── index.css
+    ├── api/
+    │   ├── axios.js
+    │   ├── newsApi.js
+    │   └── stocksApi.js
+    ├── components/
+    │   ├── Navbar.jsx
+    │   ├── NewsCard.jsx
+    │   └── StockChart.jsx
+    └── pages/
+        ├── Dashboard.jsx
+        ├── AllNews.jsx
+        ├── SectorNews.jsx
+        └── SectorStocks.jsx
+```
 
-### `npm start`
+## 🚀 시작하기
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+### 1. 프로젝트 폴더 생성
+```bash
+mkdir stock-trend-frontend
+cd stock-trend-frontend
+```
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+### 2. 파일 배치
+다운로드한 19개 파일을 다음과 같이 배치하세요:
 
-### `npm test`
+**루트 폴더에 배치:**
+- package.json
+- vite.config.js
+- tailwind.config.js
+- postcss.config.js
+- index.html
+- .env
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+**src/ 폴더 생성 후 배치:**
+- src/main.jsx
+- src/App.jsx
+- src/index.css
 
-### `npm run build`
+**src/api/ 폴더 생성 후 배치:**
+- src/api/axios.js
+- src/api/newsApi.js
+- src/api/stocksApi.js
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+**src/components/ 폴더 생성 후 배치:**
+- src/components/Navbar.jsx
+- src/components/NewsCard.jsx
+- src/components/StockChart.jsx
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+**src/pages/ 폴더 생성 후 배치:**
+- src/pages/Dashboard.jsx
+- src/pages/AllNews.jsx
+- src/pages/SectorNews.jsx
+- src/pages/SectorStocks.jsx
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+### 3. 패키지 설치
+```bash
+npm install
+```
 
-### `npm run eject`
+### 4. 개발 서버 실행
+```bash
+npm run dev
+```
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+브라우저에서 `http://localhost:3000` 접속
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+## ⚙️ 환경 설정
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+`.env` 파일에서 백엔드 API URL 설정:
+```
+VITE_API_URL=http://localhost:8000
+```
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+## 📱 주요 기능
 
-## Learn More
+### 1. 대시보드 (`/`)
+- 섹터별 시장 감성 온도 표시
+- 긍정/중립/부정 뉴스 개수 통계
+- 섹터별 뉴스/주식 바로가기
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+### 2. 전체 뉴스 (`/news`)
+- 모든 섹터의 뉴스 보기
+- 섹터별 필터링
+- AI 감성 분석 트리거
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+### 3. 섹터별 뉴스 (`/sector/:id/news`)
+- 특정 섹터의 뉴스 목록
+- 뉴스 수집 기능
 
-### Code Splitting
+### 4. 섹터별 주식 (`/sector/:id/stocks`)
+- 주가 차트 (Recharts)
+- 기간 선택 (7일/30일/90일)
+- 주가 데이터 수집 기능
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+## 🔗 백엔드 연동
 
-### Analyzing the Bundle Size
+백엔드 서버가 `http://localhost:8000`에서 실행 중이어야 합니다.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+### 백엔드 API 엔드포인트
+- `GET /news/sectors` - 섹터 목록
+- `GET /news/dashboard-summary` - 대시보드 통계
+- `GET /news/sector/{id}` - 섹터별 뉴스
+- `GET /news/` - 전체 뉴스
+- `POST /news/collect` - 뉴스 수집
+- `POST /news/analyze` - AI 감성 분석
+- `GET /stocks/sector/{id}` - 섹터별 주식
+- `POST /stocks/collect` - 주가 수집
 
-### Making a Progressive Web App
+## 🎨 기술 스택
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+- **React 18** - UI 라이브러리
+- **Vite** - 빌드 도구
+- **React Router** - 라우팅
+- **Axios** - HTTP 클라이언트
+- **Tailwind CSS** - 스타일링
+- **Recharts** - 차트 라이브러리
 
-### Advanced Configuration
+## 📦 빌드
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+프로덕션 빌드:
+```bash
+npm run build
+```
 
-### Deployment
+빌드 결과물 미리보기:
+```bash
+npm run preview
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+## 🐛 문제 해결
 
-### `npm run build` fails to minify
+### 백엔드 연결 안 될 때
+1. 백엔드 서버 실행 확인: `http://localhost:8000`
+2. `.env` 파일의 `VITE_API_URL` 확인
+3. 브라우저 콘솔에서 CORS 에러 확인
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+### 빌드 에러 날 때
+```bash
+rm -rf node_modules package-lock.json
+npm install
+```

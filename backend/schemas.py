@@ -2,14 +2,12 @@ from pydantic import BaseModel, EmailStr
 from datetime import datetime
 from typing import Optional, List
 
-
 # ── Auth ──────────────────────────────────────────────────────────────────────
 
 class UserCreate(BaseModel):
     username: str
-    email: str
+    email: EmailStr
     password: str
-
 
 class UserResponse(BaseModel):
     id: int
@@ -19,17 +17,17 @@ class UserResponse(BaseModel):
 
     model_config = {"from_attributes": True}
 
-
 class LoginRequest(BaseModel):
     email: str
     password: str
-
 
 class Token(BaseModel):
     access_token: str
     token_type: str
     user: UserResponse
 
+class TokenData(BaseModel):
+    username: Optional[str] = None
 
 # ── Sector ────────────────────────────────────────────────────────────────────
 
@@ -40,7 +38,6 @@ class SectorResponse(BaseModel):
     icon: Optional[str]
 
     model_config = {"from_attributes": True}
-
 
 class SectorStats(BaseModel):
     sector_id: int
@@ -53,7 +50,6 @@ class SectorStats(BaseModel):
     positive_count: int
     negative_count: int
     neutral_count: int
-
 
 # ── News ──────────────────────────────────────────────────────────────────────
 
@@ -72,7 +68,6 @@ class NewsResponse(BaseModel):
 
     model_config = {"from_attributes": True}
 
-
 # ── Stock ─────────────────────────────────────────────────────────────────────
 
 class StockResponse(BaseModel):
@@ -84,7 +79,6 @@ class StockResponse(BaseModel):
 
     model_config = {"from_attributes": True}
 
-
 class StockPriceResponse(BaseModel):
     date: datetime
     open: Optional[float]
@@ -95,11 +89,9 @@ class StockPriceResponse(BaseModel):
 
     model_config = {"from_attributes": True}
 
-
 class StockWithPrices(BaseModel):
     stock: StockResponse
     prices: List[StockPriceResponse]
-
 
 # ── Post ──────────────────────────────────────────────────────────────────────
 
@@ -107,11 +99,9 @@ class PostCreate(BaseModel):
     title: str
     content: str
 
-
 class PostUpdate(BaseModel):
     title: Optional[str] = None
     content: Optional[str] = None
-
 
 class PostListItem(BaseModel):
     id: int
@@ -122,7 +112,6 @@ class PostListItem(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
-
 
 class PostResponse(BaseModel):
     id: int
@@ -136,33 +125,29 @@ class PostResponse(BaseModel):
 
     model_config = {"from_attributes": True}
 
-
 class PostListResponse(BaseModel):
     total: int
     page: int
     size: int
     items: List[PostListItem]
 
-
 # ── Comment ───────────────────────────────────────────────────────────────────
 
 class CommentCreate(BaseModel):
     content: str
 
-
 class CommentUpdate(BaseModel):
     content: str
 
-
 class CommentResponse(BaseModel):
     id: int
-    post_id: int
+    post_id: Optional[int] = None
+    news_id: Optional[int] = None
     content: str
     created_at: datetime
     updated_at: datetime
     author: UserResponse
 
     model_config = {"from_attributes": True}
-
 
 PostResponse.model_rebuild()

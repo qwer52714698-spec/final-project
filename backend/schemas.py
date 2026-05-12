@@ -206,3 +206,35 @@ class CommentResponse(BaseModel):
 
 
 PostResponse.model_rebuild()
+
+
+# ── News Features ─────────────────────────────────────────────────────────────
+
+class SectorDailyFeature(BaseModel):
+    date: datetime
+    sector_id: int
+    sector_name: str
+    news_count: int
+    avg_sentiment_score: float
+    avg_impact_score: float
+    positive_count: int
+    negative_count: int
+    neutral_count: int
+    event_type_counts: dict[str, int]
+
+
+class NewsSignalPreview(BaseModel):
+    news_id: int
+    sector_id: int
+    sector_name: str
+    title: str
+    sentiment_score: float
+    sentiment_label: str
+    sentiment_tier: str
+    sentiment_display: str
+    impact_score: float
+    impact_tier: str
+    impact_display: str
+    event_type: str
+    summary: str
+    analysis_source: str

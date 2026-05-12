@@ -217,7 +217,7 @@ def call_gpt(prompt: str, model: str = "gpt-4o-mini") -> dict[str, Any]:
                     {"role": "system", "content": "You are a helpful assistant that outputs JSON."},
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.2,
+                temperature=0.0,
                 response_format={"type": "json_object"}
             )
             # OpenAI 응답 구조에서 텍스트 추출
@@ -253,12 +253,9 @@ def clamp(value: Any, minimum: float, maximum: float, default: float) -> float:
 
 
 def normalize_label(value: Any, score: float) -> str:
-    label = str(value or "").strip().lower()
-    if label in {"positive", "negative", "neutral"}:
-        return label
-    if score > 0.15:
+    if score > 0.10:
         return "positive"
-    if score < -0.15:
+    if score < -0.10:
         return "negative"
     return "neutral"
 
@@ -268,6 +265,26 @@ def normalize_summary(value: Any, fallback_text: str) -> str:
     if summary:
         return summary[:MAX_SUMMARY_LENGTH]
     return fallback_text[:MAX_SUMMARY_LENGTH] if fallback_text else "분석 완료"
+
+
+def get_sentiment_tier(score: float) -> tuple[str, str]:
+    if score <= -0.35:
+        return "strong_negative", "강한 부정"
+    if score < -0.10:
+        return "negative", "약한 부정"
+    if score < 0.10:
+        return "neutral", "중립"
+    if score < 0.35:
+        return "positive", "약한 긍정"
+    return "strong_positive", "강한 긍정"
+
+
+def get_impact_tier(score: float) -> tuple[str, str]:
+    if score < 0.15:
+        return "low", "영향 낮음"
+    if score < 0.4:
+        return "medium", "영향 보통"
+    return "high", "영향 높음"
 
 
 def normalize_event_type(value: Any, title: str, clean_text: str) -> str:

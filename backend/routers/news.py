@@ -7,6 +7,7 @@ from services.ai_analyzer import analyze_pending_news
 import models
 import schemas
 from typing import List, Optional
+import crud
 
 router = APIRouter(prefix="/news", tags=["뉴스"])
 
@@ -91,6 +92,59 @@ def get_all_news(
     return q.order_by(models.News.published_at.desc()).offset(skip).limit(limit).all()
 
 
+@router.get("/features/daily", response_model=List[schemas.SectorDailyFeature])
+def get_daily_features(
+    sector_id: Optional[int] = None,
+    limit_days: int = 30,
+    db: Session = Depends(get_db),
+):
+    return crud.get_sector_daily_features(
+        db,
+        sector_id=sector_id,
+        limit_days=limit_days,
+    )
+
+
+@router.get("/{news_id}/signal-preview", response_model=schemas.NewsSignalPreview)
+def get_news_signal_preview(
+    news_id: int,
+    db: Session = Depends(get_db),
+):
+    from services.ai_analyzer import (
+        analyze_news_result,
+        get_impact_tier,
+        get_sentiment_tier,
+    )
+
+    news = db.query(models.News).filter(models.News.id == news_id).first()
+    if not news:
+        raise HTTPException(status_code=404, detail="뉴스를 찾을 수 없습니다.")
+
+    sector = db.query(models.Sector).filter(models.Sector.id == news.sector_id).first()
+    sector_name = sector.name if sector else "일반"
+    result = analyze_news_result(news, sector_name)
+    sentiment_tier, sentiment_display = get_sentiment_tier(result.sentiment_score)
+    impact_score = result.impact_score or 0.0
+    impact_tier, impact_display = get_impact_tier(impact_score)
+
+    return schemas.NewsSignalPreview(
+        news_id=news.id,
+        sector_id=news.sector_id,
+        sector_name=sector_name,
+        title=news.title,
+        sentiment_score=result.sentiment_score,
+        sentiment_label=result.sentiment_label,
+        sentiment_tier=sentiment_tier,
+        sentiment_display=sentiment_display,
+        impact_score=impact_score,
+        impact_tier=impact_tier,
+        impact_display=impact_display,
+        event_type=result.event_type or "other",
+        summary=result.summary,
+        analysis_source="preview",
+    )
+
+
 @router.post("/collect", summary="뉴스 수집 트리거")
 def trigger_collect(
     background_tasks: BackgroundTasks,
@@ -121,6 +175,7 @@ def trigger_analyze(
 @router.post("/{news_id}/analyze", response_model=schemas.NewsResponse, summary="개별 뉴스 AI 감성분석")
 def analyze_single(
     news_id: int,
+    force_reanalyze: bool = False,
     db: Session = Depends(get_db),
 ):
     from config import settings
@@ -132,6 +187,14 @@ def analyze_single(
 
     if not settings.OPENAI_API_KEY:
         raise HTTPException(status_code=503, detail="Openai API 키가 설정되지 않았습니다.")
+
+    already_analyzed = (
+        news.ai_summary
+        and str(news.ai_summary).strip()
+        and news.sentiment_label
+    )
+    if already_analyzed and not force_reanalyze:
+        return news
 
     sector = db.query(models.Sector).filter(models.Sector.id == news.sector_id).first()
     sector_name = sector.name if sector else "일반"

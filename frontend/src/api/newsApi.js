@@ -16,5 +16,6 @@ export const newsApi = {
 
   analyzeNews: () => api.post('/news/analyze'),
 
+  // 🆕 개별 뉴스 AI 감성분석
   analyzeSingleNews: (newsId) => api.post(`/news/${newsId}/analyze`),
 }

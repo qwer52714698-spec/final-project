@@ -24,13 +24,13 @@ def get_current_user(
             settings.SECRET_KEY,
             algorithms=[settings.ALGORITHM],
         )
-        username: str = payload.get("sub")  # username으로 변경
-        if username is None:
+        user_id: int = payload.get("sub")
+        if user_id is None:
             raise credentials_exception
     except JWTError:
         raise credentials_exception
 
-    user = db.query(models.User).filter(models.User.username == username).first()  # username으로 검색
+    user = db.query(models.User).filter(models.User.id == int(user_id)).first()
     if user is None:
         raise credentials_exception
     return user
@@ -48,9 +48,9 @@ def get_optional_user(
             settings.SECRET_KEY,
             algorithms=[settings.ALGORITHM],
         )
-        username = payload.get("sub")  # username으로 변경
-        if username is None:
+        user_id = payload.get("sub")
+        if user_id is None:
             return None
-        return db.query(models.User).filter(models.User.username == username).first()  # username으로 검색
+        return db.query(models.User).filter(models.User.id == int(user_id)).first()
     except JWTError:
         return None

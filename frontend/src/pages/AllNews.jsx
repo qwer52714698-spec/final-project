@@ -9,7 +9,8 @@ function AllNews() {
   const [sectors, setSectors] = useState([])
   const [selectedSector, setSelectedSector] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [selectedNews, setSelectedNews] = useState(null) // 선택된 뉴스 (댓글 보기용)
+  const [selectedNews, setSelectedNews] = useState(null)
+  const [analyzing, setAnalyzing] = useState(false)  // 🆕 분석 중 상태
 
   useEffect(() => {
     loadSectors()
@@ -49,6 +50,23 @@ function AllNews() {
     }
   }
 
+  // 🆕 개별 뉴스 AI 분석
+  const handleAnalyzeSingle = async () => {
+    if (!selectedNews) return
+
+    setAnalyzing(true)
+    try {
+      const response = await newsApi.analyzeSingleNews(selectedNews.id)
+      alert('AI 감성 분석이 완료되었습니다.')
+      setSelectedNews(response.data)
+    } catch (error) {
+      console.error('분석 실패:', error)
+      alert('AI 분석에 실패했습니다.')
+    } finally {
+      setAnalyzing(false)
+    }
+  }
+
   const handleNewsClick = (newsItem) => {
     setSelectedNews(newsItem)
   }
@@ -73,7 +91,30 @@ function AllNews() {
         </button>
 
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h1 className="text-2xl font-bold mb-4">{selectedNews.title}</h1>
+          <div className="flex justify-between items-start mb-4">
+            <h1 className="text-2xl font-bold flex-1">{selectedNews.title}</h1>
+            {/* 🆕 AI 분석 버튼 */}
+            <button
+              onClick={handleAnalyzeSingle}
+              disabled={analyzing}
+              className="ml-4 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition disabled:bg-gray-400"
+            >
+              {analyzing ? '분석 중...' : '🤖 AI 분석'}
+            </button>
+          </div>
+
+          {/* 감성 점수 표시 */}
+          <div className="flex gap-3 mb-4">
+            <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+              selectedNews.sentiment_label === 'positive' ? 'bg-green-100 text-green-700' :
+              selectedNews.sentiment_label === 'negative' ? 'bg-red-100 text-red-700' :
+              'bg-gray-100 text-gray-700'
+            }`}>
+              {selectedNews.sentiment_label === 'positive' ? '긍정' :
+               selectedNews.sentiment_label === 'negative' ? '부정' : '중립'}
+              {' '}{selectedNews.sentiment_score?.toFixed(2)}
+            </span>
+          </div>
 
           {selectedNews.ai_summary && (
             <div className="bg-blue-50 p-4 rounded-lg mb-4">
@@ -103,15 +144,11 @@ function AllNews() {
           </div>
         </div>
 
-        {/* 🆕 댓글 작성 폼 */}
         <CommentForm 
           newsId={selectedNews.id} 
-          onCommentAdded={() => {
-            setSelectedNews({...selectedNews})
-          }}
+          onCommentAdded={() => setSelectedNews({...selectedNews})}
         />
 
-        {/* 🆕 댓글 목록 */}
         <CommentList key={selectedNews.id} newsId={selectedNews.id} />
       </div>
     )

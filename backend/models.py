@@ -1,5 +1,6 @@
-from sqlalchemy import Column, Integer, String, Text, Float, DateTime, ForeignKey, BigInteger
+from sqlalchemy import Column, Integer, String, Text, Float, DateTime, ForeignKey, BigInteger, JSON  # 💡 JSON 추가됨
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
 from database import Base
 from datetime import datetime
 
@@ -12,7 +13,7 @@ class User(Base):
     password_hash = Column(String(255), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    # 🟢 주석 해제 및 관계 설정: 유저가 삭제되면 쓴 댓글도 삭제되도록 설정
+    # 유저가 삭제되면 쓴 댓글도 삭제되도록 설정
     comments = relationship("Comment", back_populates="author", cascade="all, delete-orphan")
 
 
@@ -43,22 +44,19 @@ class News(Base):
     collected_at = Column(DateTime, default=datetime.utcnow)
 
     sector = relationship("Sector", back_populates="news_items")
-    # 🟢 추가: 뉴스를 조회할 때 달린 댓글들을 바로 가져올 수 있게 연결
     comments = relationship("Comment", back_populates="news", cascade="all, delete-orphan")
 
 
-# 🆕 신규 추가: 댓글 모델
 class Comment(Base):
     __tablename__ = "comments"
 
     id = Column(Integer, primary_key=True, index=True)
     content = Column(Text, nullable=False)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False) # 작성자 ID
-    news_id = Column(Integer, ForeignKey("news.id"), nullable=False) # 뉴스 ID
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    news_id = Column(Integer, ForeignKey("news.id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow) # 수정 시간 추가
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    # 관계 설정
     author = relationship("User", back_populates="comments")
     news = relationship("News", back_populates="comments")
 
@@ -74,6 +72,8 @@ class Stock(Base):
 
     prices = relationship("StockPrice", back_populates="stock", cascade="all, delete-orphan")
     sector = relationship("Sector", back_populates="stocks")
+    # 💡 분석 결과와 주식 정보를 바로 연결할 수 있게 추가
+    predictions = relationship("StockPrediction", back_populates="stock", cascade="all, delete-orphan")
 
 
 class StockPrice(Base):
@@ -89,3 +89,19 @@ class StockPrice(Base):
     volume = Column(BigInteger)
 
     stock = relationship("Stock", back_populates="prices")
+
+
+class StockPrediction(Base):
+    __tablename__ = "stock_predictions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    stock_id = Column(Integer, ForeignKey("stocks.id")) 
+    ticker = Column(String)
+    prediction = Column(String) # 상승 또는 하락
+    confidence = Column(String) # 예: 75.5%
+    accuracy = Column(String, nullable=True) # 분석 정확도
+    important_factors = Column(JSON) 
+    created_at = Column(DateTime, default=func.now())
+
+    # 💡 Stock 모델과의 관계 정의
+    stock = relationship("Stock", back_populates="predictions")

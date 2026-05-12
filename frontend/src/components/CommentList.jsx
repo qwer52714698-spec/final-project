@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
 import { commentsApi } from '../api/commentsApi'
+import { useAuth } from '../contexts/AuthContext'
 
 function CommentList({ newsId }) {
+  const { user } = useAuth()  // 🆕 현재 로그인 유저 정보
   const [comments, setComments] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -23,13 +25,16 @@ function CommentList({ newsId }) {
   const handleDelete = async (commentId) => {
     if (!confirm('댓글을 삭제하시겠습니까?')) return
 
-    // TODO: 실제 로그인 토큰 가져오기
-    const token = localStorage.getItem('token') || 'dummy-token'
+    const token = localStorage.getItem('token')
+    if (!token) {
+      alert('로그인이 필요합니다.')
+      return
+    }
 
     try {
       await commentsApi.deleteComment(commentId, token)
       alert('댓글이 삭제되었습니다.')
-      loadComments() // 목록 새로고침
+      loadComments()
     } catch (error) {
       console.error('댓글 삭제 실패:', error)
       alert('댓글 삭제에 실패했습니다. 본인의 댓글만 삭제할 수 있습니다.')
@@ -78,13 +83,15 @@ function CommentList({ newsId }) {
                   </span>
                 </div>
 
-                {/* TODO: 본인 댓글일 때만 삭제 버튼 표시 */}
-                <button
-                  onClick={() => handleDelete(comment.id)}
-                  className="text-sm text-red-600 hover:text-red-800"
-                >
-                  삭제
-                </button>
+                {/* 🆕 본인 댓글일 때만 삭제 버튼 표시 */}
+                {user && comment.author && user.id === comment.author.id && (
+                  <button
+                    onClick={() => handleDelete(comment.id)}
+                    className="text-sm text-red-600 hover:text-red-800"
+                  >
+                    삭제
+                  </button>
+                )}
               </div>
 
               <p className="text-gray-700 whitespace-pre-wrap">

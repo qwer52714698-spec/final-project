@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from database import get_db
@@ -6,15 +6,15 @@ from services.news_collector import collect_news_for_sector
 from services.ai_analyzer import analyze_pending_news
 import models
 import schemas
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 
 router = APIRouter(prefix="/news", tags=["뉴스"])
 
+# --- 섹터 관련 엔드포인트 ---
 
 @router.get("/sectors", response_model=List[schemas.SectorResponse])
 def get_sectors(db: Session = Depends(get_db)):
     return db.query(models.Sector).all()
-
 
 @router.get("/dashboard-summary", response_model=List[schemas.SectorStats])
 def get_dashboard_summary(db: Session = Depends(get_db)):
@@ -23,6 +23,7 @@ def get_dashboard_summary(db: Session = Depends(get_db)):
     for sector in sectors:
         stock_count = db.query(func.count(models.Stock.id)).filter(models.Stock.sector_id == sector.id).scalar() or 0
         news_items = db.query(models.News).filter(models.News.sector_id == sector.id).all()
+        
         if not news_items:
             result.append(schemas.SectorStats(
                 sector_id=sector.id,
@@ -37,12 +38,14 @@ def get_dashboard_summary(db: Session = Depends(get_db)):
                 neutral_count=0,
             ))
             continue
-        scores = [n.sentiment_score for n in news_items]
-        avg = sum(scores) / len(scores)
+            
+        scores = [n.sentiment_score for n in news_items if n.sentiment_score is not None]
+        avg = sum(scores) / len(scores) if scores else 0.0
         temperature = (avg + 1) / 2 * 100
         pos = sum(1 for n in news_items if n.sentiment_label == "positive")
         neg = sum(1 for n in news_items if n.sentiment_label == "negative")
         neu = sum(1 for n in news_items if n.sentiment_label == "neutral")
+        
         result.append(schemas.SectorStats(
             sector_id=sector.id,
             sector_name=sector.name,
@@ -57,39 +60,75 @@ def get_dashboard_summary(db: Session = Depends(get_db)):
         ))
     return result
 
+# --- 페이지네이션 적용된 뉴스 목록 엔드포인트 ---
 
-@router.get("/sector/{sector_id}", response_model=List[schemas.NewsResponse])
-def get_news_by_sector(
-    sector_id: int,
-    limit: int = 20,
-    skip: int = 0,
-    db: Session = Depends(get_db),
-):
-    sector = db.query(models.Sector).filter(models.Sector.id == sector_id).first()
-    if not sector:
-        raise HTTPException(status_code=404, detail="섹터를 찾을 수 없습니다.")
-    return (
-        db.query(models.News)
-        .filter(models.News.sector_id == sector_id)
-        .order_by(models.News.published_at.desc())
-        .offset(skip)
-        .limit(limit)
-        .all()
-    )
-
-
-@router.get("/", response_model=List[schemas.NewsResponse])
+@router.get("/", response_model=Dict[str, Any])
 def get_all_news(
-    limit: int = 30,
-    skip: int = 0,
+    page: int = Query(1, ge=1, description="현재 페이지 번호"),
+    size: int = Query(10, ge=1, le=100, description="페이지당 뉴스 개수"),
     sector_id: Optional[int] = None,
     db: Session = Depends(get_db),
 ):
-    q = db.query(models.News)
+    """
+    숫자 페이지네이션을 지원하는 전체 뉴스 목록 API
+    """
+    skip = (page - 1) * size
+    query = db.query(models.News)
+    
     if sector_id:
-        q = q.filter(models.News.sector_id == sector_id)
-    return q.order_by(models.News.published_at.desc()).offset(skip).limit(limit).all()
+        query = query.filter(models.News.sector_id == sector_id)
+    
+    # 1. 필터링된 전체 뉴스 개수 구하기
+    total_count = query.count()
+    
+    # 2. 현재 페이지에 해당하는 데이터 가져오기
+    news_items = (
+        query.order_by(models.News.published_at.desc())
+        .offset(skip)
+        .limit(size)
+        .all()
+    )
+    
+    return {
+        "total": total_count,
+        "page": page,
+        "size": size,
+        "items": news_items
+    }
 
+@router.get("/sector/{sector_id}", response_model=Dict[str, Any])
+def get_news_by_sector(
+    sector_id: int,
+    page: int = Query(1, ge=1),
+    size: int = Query(10, ge=1, le=100),
+    db: Session = Depends(get_db),
+):
+    """
+    섹터별 숫자 페이지네이션 뉴스 API
+    """
+    sector = db.query(models.Sector).filter(models.Sector.id == sector_id).first()
+    if not sector:
+        raise HTTPException(status_code=404, detail="섹터를 찾을 수 없습니다.")
+        
+    skip = (page - 1) * size
+    query = db.query(models.News).filter(models.News.sector_id == sector_id)
+    
+    total_count = query.count()
+    news_items = (
+        query.order_by(models.News.published_at.desc())
+        .offset(skip)
+        .limit(size)
+        .all()
+    )
+    
+    return {
+        "total": total_count,
+        "page": page,
+        "size": size,
+        "items": news_items
+    }
+
+# --- 작업 트리거 및 분석 엔드포인트 ---
 
 @router.post("/collect", summary="뉴스 수집 트리거")
 def trigger_collect(
@@ -103,11 +142,11 @@ def trigger_collect(
             raise HTTPException(status_code=404, detail="섹터를 찾을 수 없습니다.")
         background_tasks.add_task(collect_news_for_sector, sector.id, sector.name)
         return {"message": f"{sector.name} 뉴스 수집을 시작합니다."}
+    
     sectors = db.query(models.Sector).all()
     for s in sectors:
         background_tasks.add_task(collect_news_for_sector, s.id, s.name)
     return {"message": "전체 섹터 뉴스 수집을 시작합니다."}
-
 
 @router.post("/analyze", summary="AI 감성 분석 트리거")
 def trigger_analyze(
@@ -116,7 +155,6 @@ def trigger_analyze(
 ):
     background_tasks.add_task(analyze_pending_news)
     return {"message": "AI 감성 분석을 시작합니다."}
-
 
 @router.post("/{news_id}/analyze", response_model=schemas.NewsResponse, summary="개별 뉴스 AI 감성분석")
 def analyze_single(

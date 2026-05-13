@@ -5,6 +5,8 @@ from database import SessionLocal
 import models, schemas
 from dependencies import get_current_user
 
+
+
 router = APIRouter(
     prefix="/news",
     tags=["comments"]

@@ -93,6 +93,28 @@ class StockWithPrices(BaseModel):
     stock: StockResponse
     prices: List[StockPriceResponse]
 
+
+class StockNewsMatch(BaseModel):
+    stock_id: int
+    symbol: str
+    stock_name: str
+    match_type: str
+    confidence: float
+
+
+class DailyStockNewsFeature(BaseModel):
+    date: datetime
+    stock_id: int
+    symbol: str
+    stock_name: str
+    news_count: int
+    avg_sentiment_score: float
+    avg_impact_score: float
+    positive_count: int
+    negative_count: int
+    neutral_count: int
+    event_type_counts: dict[str, int]
+
 # ── Post ──────────────────────────────────────────────────────────────────────
 
 class PostCreate(BaseModel):

@@ -93,7 +93,7 @@ def get_all_news(
         "total": total_count,
         "page": page,
         "size": size,
-        "items": [schemas.NewsResponse.model_validate(n) for n in news_items]  # ✅ 직렬화 수정
+        "items": news_items
     }
 
 @router.get("/sector/{sector_id}", response_model=Dict[str, Any])
@@ -125,7 +125,7 @@ def get_news_by_sector(
         "total": total_count,
         "page": page,
         "size": size,
-        "items": [schemas.NewsResponse.model_validate(n) for n in news_items]  # ✅ 직렬화 수정
+        "items": news_items
     }
 
 # --- 작업 트리거 및 분석 엔드포인트 ---

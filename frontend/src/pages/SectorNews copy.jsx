@@ -5,8 +5,6 @@ import NewsCard from '../components/NewsCard'
 import CommentList from '../components/CommentList'
 import CommentForm from '../components/CommentForm'
 
-const PAGE_SIZE = 10
-
 function SectorNews() {
   const { sectorId } = useParams()
   const navigate = useNavigate()
@@ -15,26 +13,16 @@ function SectorNews() {
   const [loading, setLoading] = useState(true)
   const [selectedNews, setSelectedNews] = useState(null)
   const [analyzing, setAnalyzing] = useState(false)  // 🆕 분석 중 상태
-  // ✅ 페이지네이션 상태
-  const [currentPage, setCurrentPage] = useState(1)
-  const [totalCount, setTotalCount] = useState(0)
 
   useEffect(() => {
-    setCurrentPage(1)
-    loadNews(1)
+    loadNews()
     loadSectorInfo()
   }, [sectorId])
 
-  useEffect(() => {
-    loadNews(currentPage)
-  }, [currentPage])
-
-  const loadNews = async (page) => {
-    setLoading(true)
+  const loadNews = async () => {
     try {
-      const response = await newsApi.getNewsBySector(sectorId, page, PAGE_SIZE)
+      const response = await newsApi.getNewsBySector(sectorId, 1, 50)
       setNews(response.data.items) // ✅ 응답 구조 { total, page, size, items } 반영
-      setTotalCount(response.data.total)
     } catch (error) {
       console.error('뉴스 로딩 실패:', error)
     } finally {
@@ -85,17 +73,6 @@ function SectorNews() {
 
   const handleBackToList = () => {
     setSelectedNews(null)
-  }
-
-  const totalPages = Math.ceil(totalCount / PAGE_SIZE)
-
-  const getPageNumbers = () => {
-    const pages = []
-    let start = Math.max(1, currentPage - 2)
-    let end = Math.min(totalPages, start + 4)
-    if (end - start < 4) start = Math.max(1, end - 4)
-    for (let i = start; i <= end; i++) pages.push(i)
-    return pages
   }
 
   if (loading) {
@@ -200,10 +177,6 @@ function SectorNews() {
         </button>
       </div>
 
-      {totalCount > 0 && (
-        <div className="text-sm text-gray-500 mb-4">총 {totalCount}개</div>
-      )}
-
       {news.length === 0 ? (
         <div className="text-center py-20 text-gray-500">
           아직 뉴스가 없습니다. 뉴스 수집 버튼을 눌러주세요.
@@ -215,44 +188,6 @@ function SectorNews() {
               <NewsCard news={item} />
             </div>
           ))}
-        </div>
-      )}
-
-      {/* ✅ 페이지네이션 */}
-      {totalPages > 1 && (
-        <div className="mt-8">
-          <div className="flex items-center justify-center gap-1">
-            <button
-              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              className="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-100 disabled:opacity-30 transition"
-            >
-              ←
-            </button>
-            {getPageNumbers().map(page => (
-              <button
-                key={page}
-                onClick={() => setCurrentPage(page)}
-                className={`w-9 h-9 flex items-center justify-center rounded-lg text-sm font-medium transition ${
-                  currentPage === page
-                    ? 'bg-blue-600 text-white border border-blue-600'
-                    : 'border border-gray-300 text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                {page}
-              </button>
-            ))}
-            <button
-              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
-              className="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-100 disabled:opacity-30 transition"
-            >
-              →
-            </button>
-          </div>
-          <div className="text-center text-xs text-gray-400 mt-2">
-            {currentPage} / {totalPages} 페이지 · 총 {totalCount}개
-          </div>
         </div>
       )}
     </div>

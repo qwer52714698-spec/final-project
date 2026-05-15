@@ -64,7 +64,7 @@ def run_full_analysis():
                 except Exception as e:
                     print(f"❌ {symbol} 오류: {e} → 재시도 예정")
                     failed.append(symbol)
-                time.sleep(5)  # yfinance Rate Limit 방지용 대기시간
+                time.sleep(10)  # yfinance Rate Limit 방지용 대기시간
 
             pending = failed  # 다음 라운드에서 실패한 것만 재시도
 
@@ -80,10 +80,9 @@ def run_full_analysis():
 
     print("✨ [시스템] 모든 데이터(뉴스+주가) 최신화가 완료되었습니다.")
 
-# ⛔ 개발 중 서버 시작 시 자동 실행 OFF — 개발 완료 후 아래 주석 해제
-# def start_initial_analysis():
-#     time.sleep(10) # 서버 안정화를 위해 10초 대기
-#     run_full_analysis()
+def start_initial_analysis():
+    time.sleep(10) # 서버 안정화를 위해 10초 대기
+    run_full_analysis()
 
 scheduler = BackgroundScheduler()
 scheduler.add_job(run_full_analysis, 'cron', hour=16, minute=30) # 장 마감 후 여유있게 4시 반 실행
@@ -91,8 +90,7 @@ scheduler.start()
 
 @app.on_event("startup")
 def startup_event():
-    pass  # ⛔ 개발 중 자동 실행 OFF — 개발 완료 후 아래로 교체
-    # threading.Thread(target=start_initial_analysis, daemon=True).start()
+    threading.Thread(target=start_initial_analysis, daemon=True).start()
 
 @app.get("/")
 def read_root():

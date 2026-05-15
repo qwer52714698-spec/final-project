@@ -4,30 +4,21 @@ import NewsCard from '../components/NewsCard'
 import CommentList from '../components/CommentList'
 import CommentForm from '../components/CommentForm'
 
-const PAGE_SIZE = 10
-
 function AllNews() {
   const [news, setNews] = useState([])
   const [sectors, setSectors] = useState([])
   const [selectedSector, setSelectedSector] = useState(null)
   const [loading, setLoading] = useState(true)
   const [selectedNews, setSelectedNews] = useState(null)
-  const [analyzing, setAnalyzing] = useState(false)
-  const [currentPage, setCurrentPage] = useState(1)
-  const [totalCount, setTotalCount] = useState(0)
+  const [analyzing, setAnalyzing] = useState(false)  // 🆕 분석 중 상태
 
   useEffect(() => {
     loadSectors()
   }, [])
 
   useEffect(() => {
-    setCurrentPage(1)
-    loadNews(1)
+    loadNews()
   }, [selectedSector])
-
-  useEffect(() => {
-    loadNews(currentPage)
-  }, [currentPage])
 
   const loadSectors = async () => {
     try {
@@ -38,12 +29,10 @@ function AllNews() {
     }
   }
 
-  const loadNews = async (page) => {
-    setLoading(true)
+  const loadNews = async () => {
     try {
-      const response = await newsApi.getAllNews(page, PAGE_SIZE, selectedSector)
-      setNews(response.data.items)
-      setTotalCount(response.data.total)
+      const response = await newsApi.getAllNews(1, 50, selectedSector)
+      setNews(response.data.items) // ✅ 응답 구조 { total, page, size, items } 반영
     } catch (error) {
       console.error('뉴스 로딩 실패:', error)
     } finally {
@@ -61,8 +50,10 @@ function AllNews() {
     }
   }
 
+  // 🆕 개별 뉴스 AI 분석
   const handleAnalyzeSingle = async () => {
     if (!selectedNews) return
+
     setAnalyzing(true)
     try {
       const response = await newsApi.analyzeSingleNews(selectedNews.id)
@@ -76,34 +67,33 @@ function AllNews() {
     }
   }
 
-  const handleNewsClick = (newsItem) => setSelectedNews(newsItem)
-  const handleBackToList = () => setSelectedNews(null)
+  const handleNewsClick = (newsItem) => {
+    setSelectedNews(newsItem)
+  }
 
-  const totalPages = Math.ceil(totalCount / PAGE_SIZE)
-
-  const getPageNumbers = () => {
-    const pages = []
-    let start = Math.max(1, currentPage - 2)
-    let end = Math.min(totalPages, start + 4)
-    if (end - start < 4) start = Math.max(1, end - 4)
-    for (let i = start; i <= end; i++) pages.push(i)
-    return pages
+  const handleBackToList = () => {
+    setSelectedNews(null)
   }
 
   if (loading) {
     return <div className="text-center py-20">로딩 중...</div>
   }
 
+  // 뉴스 상세보기 + 댓글
   if (selectedNews) {
     return (
       <div>
-        <button onClick={handleBackToList} className="mb-6 text-blue-600 hover:text-blue-800 font-medium">
+        <button
+          onClick={handleBackToList}
+          className="mb-6 text-blue-600 hover:text-blue-800 font-medium"
+        >
           ← 목록으로 돌아가기
         </button>
 
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <div className="flex justify-between items-start mb-4">
             <h1 className="text-2xl font-bold flex-1">{selectedNews.title}</h1>
+            {/* 🆕 AI 분석 버튼 */}
             <button
               onClick={handleAnalyzeSingle}
               disabled={analyzing}
@@ -113,6 +103,7 @@ function AllNews() {
             </button>
           </div>
 
+          {/* 감성 점수 표시 */}
           <div className="flex gap-3 mb-4">
             <span className={`px-3 py-1 rounded-full text-sm font-medium ${
               selectedNews.sentiment_label === 'positive' ? 'bg-green-100 text-green-700' :
@@ -141,24 +132,37 @@ function AllNews() {
           <div className="flex justify-between items-center text-sm text-gray-500 border-t pt-4">
             <span>{new Date(selectedNews.published_at).toLocaleDateString('ko-KR')}</span>
             {selectedNews.url && (
-              <a href={selectedNews.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+              <a 
+                href={selectedNews.url} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:underline"
+              >
                 원문 보기 →
               </a>
             )}
           </div>
         </div>
 
-        <CommentForm newsId={selectedNews.id} onCommentAdded={() => setSelectedNews({...selectedNews})} />
+        <CommentForm 
+          newsId={selectedNews.id} 
+          onCommentAdded={() => setSelectedNews({...selectedNews})}
+        />
+
         <CommentList key={selectedNews.id} newsId={selectedNews.id} />
       </div>
     )
   }
 
+  // 뉴스 목록
   return (
     <div>
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-3xl font-bold">전체 뉴스</h1>
-        <button onClick={handleAnalyzeAll} className="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 transition">
+        <button
+          onClick={handleAnalyzeAll}
+          className="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 transition"
+        >
           AI 감성 분석
         </button>
       </div>
@@ -166,7 +170,11 @@ function AllNews() {
       <div className="mb-6 flex gap-2 flex-wrap">
         <button
           onClick={() => setSelectedSector(null)}
-          className={`px-4 py-2 rounded-lg transition ${selectedSector === null ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+          className={`px-4 py-2 rounded-lg transition ${
+            selectedSector === null 
+              ? 'bg-blue-600 text-white' 
+              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+          }`}
         >
           전체
         </button>
@@ -174,19 +182,21 @@ function AllNews() {
           <button
             key={sector.id}
             onClick={() => setSelectedSector(sector.id)}
-            className={`px-4 py-2 rounded-lg transition ${selectedSector === sector.id ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+            className={`px-4 py-2 rounded-lg transition ${
+              selectedSector === sector.id 
+                ? 'bg-blue-600 text-white' 
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            }`}
           >
             {sector.icon} {sector.name}
           </button>
         ))}
       </div>
 
-      {totalCount > 0 && (
-        <div className="text-sm text-gray-500 mb-4">총 {totalCount}개</div>
-      )}
-
       {news.length === 0 ? (
-        <div className="text-center py-20 text-gray-500">뉴스가 없습니다.</div>
+        <div className="text-center py-20 text-gray-500">
+          뉴스가 없습니다.
+        </div>
       ) : (
         <div className="space-y-4">
           {news.map(item => (
@@ -194,44 +204,6 @@ function AllNews() {
               <NewsCard news={item} />
             </div>
           ))}
-        </div>
-      )}
-
-      {/* ✅ 페이지네이션 */}
-      {totalPages > 1 && (
-        <div className="mt-8">
-          <div className="flex items-center justify-center gap-1">
-            <button
-              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              className="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-100 disabled:opacity-30 transition"
-            >
-              ←
-            </button>
-            {getPageNumbers().map(page => (
-              <button
-                key={page}
-                onClick={() => setCurrentPage(page)}
-                className={`w-9 h-9 flex items-center justify-center rounded-lg text-sm font-medium transition ${
-                  currentPage === page
-                    ? 'bg-blue-600 text-white border border-blue-600'
-                    : 'border border-gray-300 text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                {page}
-              </button>
-            ))}
-            <button
-              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
-              className="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-100 disabled:opacity-30 transition"
-            >
-              →
-            </button>
-          </div>
-          <div className="text-center text-xs text-gray-400 mt-2">
-            {currentPage} / {totalPages} 페이지 · 총 {totalCount}개
-          </div>
         </div>
       )}
     </div>

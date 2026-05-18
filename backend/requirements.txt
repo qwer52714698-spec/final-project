@@ -18,3 +18,4 @@ pykrx==1.0.51
 beautifulsoup4==4.12.3
 email-validator
 setuptools
+python-multipart

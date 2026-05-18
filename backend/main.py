@@ -2,12 +2,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database import engine, SessionLocal
 import models
-from routers import news, stocks, comments, auth
+from routers import news, stocks, comments, auth  # posts 제외
 from apscheduler.schedulers.background import BackgroundScheduler
 import requests
 import threading
 import time
-from services.ai_analyzer import analyze_pending_news # 뉴스 분석 엔진 임포트
+from services.ai_analyzer import analyze_pending_news
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -24,25 +24,23 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(news.router)
 app.include_router(stocks.router)
-app.include_router(comments.router)
+app.include_router(comments.router)  # 종목 토크방/뉴스 공용 댓글 적용 완료
 
 def run_full_analysis():
     print("🚀 [시스템] 뉴스 AI 분석 및 전 종목 예측 프로세스를 시작합니다.")
     
-    # 1. 미처리 뉴스 GPT 분석 실행
     try:
         processed_news = analyze_pending_news(limit=20)
         print(f"✅ 뉴스 AI 분석 완료 ({processed_news}건 처리)")
     except Exception as e:
         print(f"❌ 뉴스 분석 중 오류: {e}")
 
-    # 2. 전 종목 XGBoost 주가 분석 실행 (최대 3라운드 재시도)
     db = SessionLocal()
     try:
         all_stocks = db.query(models.Stock).all()
-        pending = [stock.symbol for stock in all_stocks]  # 처음엔 전 종목
+        pending = [stock.symbol for stock in all_stocks]
 
-        MAX_RETRY = 2  # 최대 재시도 횟수 (총 3라운드)
+        MAX_RETRY = 2
         for round_num in range(MAX_RETRY + 1):
             if not pending:
                 break
@@ -52,7 +50,7 @@ def run_full_analysis():
             else:
                 print(f"🔄 [{round_num + 1}라운드] 실패 종목 {len(pending)}개 재시도")
 
-            failed = []  # 이번 라운드에서 실패한 종목 저장
+            failed = []
             for symbol in pending:
                 try:
                     res = requests.get(f"http://localhost:8000/stocks/{symbol}/analyze", timeout=60)
@@ -64,9 +62,9 @@ def run_full_analysis():
                 except Exception as e:
                     print(f"❌ {symbol} 오류: {e} → 재시도 예정")
                     failed.append(symbol)
-                time.sleep(5)  # yfinance Rate Limit 방지용 대기시간
+                time.sleep(5)
 
-            pending = failed  # 다음 라운드에서 실패한 것만 재시도
+            pending = failed
 
         if pending:
             print(f"⚠️ 최종 실패 종목 {len(pending)}개:")
@@ -80,19 +78,13 @@ def run_full_analysis():
 
     print("✨ [시스템] 모든 데이터(뉴스+주가) 최신화가 완료되었습니다.")
 
-# ⛔ 개발 중 서버 시작 시 자동 실행 OFF — 개발 완료 후 아래 주석 해제
-# def start_initial_analysis():
-#     time.sleep(10) # 서버 안정화를 위해 10초 대기
-#     run_full_analysis()
-
 scheduler = BackgroundScheduler()
-scheduler.add_job(run_full_analysis, 'cron', hour=16, minute=30) # 장 마감 후 여유있게 4시 반 실행
+scheduler.add_job(run_full_analysis, 'cron', hour=16, minute=30)
 scheduler.start()
 
 @app.on_event("startup")
 def startup_event():
-    pass  # ⛔ 개발 중 자동 실행 OFF — 개발 완료 후 아래로 교체
-    # threading.Thread(target=start_initial_analysis, daemon=True).start()
+    pass
 
 @app.get("/")
 def read_root():

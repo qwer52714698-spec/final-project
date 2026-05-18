@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, Float, DateTime, ForeignKey, BigInteger, JSON  # 💡 JSON 추가됨
+from sqlalchemy import Column, Integer, String, Text, Float, DateTime, ForeignKey, BigInteger, JSON
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from database import Base
@@ -13,9 +13,8 @@ class User(Base):
     password_hash = Column(String(255), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    # 유저가 삭제되면 쓴 댓글도 삭제되도록 설정
+    posts = relationship("Post", back_populates="author", cascade="all, delete-orphan")
     comments = relationship("Comment", back_populates="author", cascade="all, delete-orphan")
-
 
 class Sector(Base):
     __tablename__ = "sectors"
@@ -27,7 +26,6 @@ class Sector(Base):
 
     news_items = relationship("News", back_populates="sector")
     stocks = relationship("Stock", back_populates="sector")
-
 
 class News(Base):
     __tablename__ = "news"
@@ -46,20 +44,36 @@ class News(Base):
     sector = relationship("Sector", back_populates="news_items")
     comments = relationship("Comment", back_populates="news", cascade="all, delete-orphan")
 
+class Post(Base):
+    __tablename__ = "posts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String(255), nullable=False)
+    content = Column(Text, nullable=False)
+    views = Column(Integer, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+
+    author = relationship("User", back_populates="posts")
+    comments = relationship("Comment", back_populates="post", cascade="all, delete-orphan")
 
 class Comment(Base):
     __tablename__ = "comments"
 
     id = Column(Integer, primary_key=True, index=True)
     content = Column(Text, nullable=False)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    news_id = Column(Integer, ForeignKey("news.id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    post_id = Column(Integer, ForeignKey("posts.id", ondelete="CASCADE"), nullable=True)
+    news_id = Column(Integer, ForeignKey("news.id", ondelete="CASCADE"), nullable=True)
+    stock_symbol = Column(String(20), ForeignKey("stocks.symbol", ondelete="CASCADE"), nullable=True)
 
     author = relationship("User", back_populates="comments")
+    post = relationship("Post", back_populates="comments")
     news = relationship("News", back_populates="comments")
-
 
 class Stock(Base):
     __tablename__ = "stocks"
@@ -72,9 +86,7 @@ class Stock(Base):
 
     prices = relationship("StockPrice", back_populates="stock", cascade="all, delete-orphan")
     sector = relationship("Sector", back_populates="stocks")
-    # 💡 분석 결과와 주식 정보를 바로 연결할 수 있게 추가
     predictions = relationship("StockPrediction", back_populates="stock", cascade="all, delete-orphan")
-
 
 class StockPrice(Base):
     __tablename__ = "stock_prices"
@@ -90,18 +102,16 @@ class StockPrice(Base):
 
     stock = relationship("Stock", back_populates="prices")
 
-
 class StockPrediction(Base):
     __tablename__ = "stock_predictions"
 
     id = Column(Integer, primary_key=True, index=True)
     stock_id = Column(Integer, ForeignKey("stocks.id")) 
     ticker = Column(String)
-    prediction = Column(String) # 상승 또는 하락
-    confidence = Column(String) # 예: 75.5%
-    accuracy = Column(String, nullable=True) # 분석 정확도
+    prediction = Column(String)
+    confidence = Column(String)
+    accuracy = Column(String, nullable=True)
     important_factors = Column(JSON) 
     created_at = Column(DateTime, default=func.now())
 
-    # 💡 Stock 모델과의 관계 정의
     stock = relationship("Stock", back_populates="predictions")

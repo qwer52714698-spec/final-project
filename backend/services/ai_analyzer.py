@@ -131,6 +131,21 @@ EVENT_TYPE_CANDIDATES = (
     "other",
 )
 
+HIGH_IMPACT_THRESHOLD = 0.4
+MEDIUM_IMPACT_THRESHOLD = 0.2
+EVENT_PRIORITY_ORDER = {
+    "rates_inflation": 0,
+    "earnings": 1,
+    "supply_contract": 2,
+    "policy_regulation": 3,
+    "labor_legal": 4,
+    "geopolitical": 5,
+    "mna_investment": 6,
+    "innovation_product": 7,
+    "macro": 8,
+    "other": 9,
+}
+
 logger = logging.getLogger(__name__)
 
 
@@ -274,7 +289,10 @@ def normalize_event_type(value: Any, title: str, clean_text: str) -> str:
     event_type = str(value or "").strip().lower()
     if event_type in EVENT_TYPE_CANDIDATES:
         return event_type
-    combined = f"{title} {clean_text}".lower()
+    title_lower = (title or "").lower()
+    clean_text_lower = clean_text.lower()
+    leading_text = clean_text_lower[:800]
+    combined = f"{title_lower} {leading_text}"
     political_admin_tokens = (
         "예비후보",
         "시장 예비후보",
@@ -288,6 +306,22 @@ def normalize_event_type(value: Any, title: str, clean_text: str) -> str:
     )
     if any(token in combined for token in political_admin_tokens):
         return "other"
+    safety_regulation_tokens = (
+        "사망",
+        "부작용",
+        "안전성",
+        "승인 철회",
+        "승인철회",
+        "fda",
+        "허가 취소",
+        "허가취소",
+        "리콜",
+        "투약",
+        "치료제",
+        "담관소실증후군",
+    )
+    if any(token in combined for token in safety_regulation_tokens):
+        return "policy_regulation"
     if any(token in combined for token in ("영업익", "매출", "실적", "흑자", "적자", "가이던스")):
         return "earnings"
     if any(token in combined for token in ("금리", "물가", "인플레이션", "cpi", "환율")):
@@ -318,6 +352,38 @@ def normalize_impact_score(value: Any, score: float, clean_text: str, event_type
     if event_type == "other":
         impact *= 0.8
     return round(max(0.0, min(impact, 1.0)), 3)
+
+
+def get_impact_band(impact_score: float) -> tuple[str, str]:
+    if impact_score >= HIGH_IMPACT_THRESHOLD:
+        return "high", "영향 높음"
+    if impact_score >= MEDIUM_IMPACT_THRESHOLD:
+        return "medium", "영향 보통"
+    return "low", "영향 낮음"
+
+
+def get_event_priority(event_type: str) -> int:
+    return EVENT_PRIORITY_ORDER.get(event_type, EVENT_PRIORITY_ORDER["other"])
+
+
+def build_news_signal_metadata(news: models.News) -> dict[str, Any]:
+    clean_text = preprocess_news(news.title or "", news.content or "")
+    sentiment_score = float(news.sentiment_score or 0.0)
+    event_type = normalize_event_type(None, news.title or "", clean_text)
+    impact_score = normalize_impact_score(None, sentiment_score, clean_text, event_type)
+
+    if is_low_relevance_article(news.title or "", clean_text) and event_type == "other":
+        impact_score = min(impact_score, LOW_RELEVANCE_SCORE_CAP)
+
+    impact_tier, impact_display = get_impact_band(impact_score)
+    return {
+        "impact_score": impact_score,
+        "event_type": event_type,
+        "impact_tier": impact_tier,
+        "impact_display": impact_display,
+        "is_high_impact": impact_score >= HIGH_IMPACT_THRESHOLD,
+        "event_priority": get_event_priority(event_type),
+    }
 
 
 def build_low_info_result(news: models.News, clean_text: str) -> AnalysisResult:

@@ -68,6 +68,21 @@ class NewsResponse(BaseModel):
 
     model_config = {"from_attributes": True}
 
+
+class NewsImpactResponse(NewsResponse):
+    impact_score: float
+    event_type: str
+    impact_tier: str
+    impact_display: str
+    is_high_impact: bool
+
+
+class NewsListResponse(BaseModel):
+    total: int
+    page: int
+    size: int
+    items: List[NewsResponse]
+
 # ── Stock ─────────────────────────────────────────────────────────────────────
 
 class StockResponse(BaseModel):
@@ -92,6 +107,26 @@ class StockPriceResponse(BaseModel):
 class StockWithPrices(BaseModel):
     stock: StockResponse
     prices: List[StockPriceResponse]
+
+
+class StockNewsMatch(BaseModel):
+    stock_id: int
+    symbol: str
+    stock_name: Optional[str]
+    match_type: str
+    confidence: float
+
+
+class DailyStockNewsFeature(BaseModel):
+    date: datetime
+    stock_id: int
+    news_count: int
+    avg_sentiment_score: float
+    avg_impact_score: float
+    positive_count: int
+    negative_count: int
+    neutral_count: int
+    event_type_counts: dict[str, int]
 
 # ── Post ──────────────────────────────────────────────────────────────────────
 

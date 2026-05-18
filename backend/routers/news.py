@@ -3,12 +3,16 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from database import get_db
 from services.news_collector import collect_news_for_sector
-from services.ai_analyzer import analyze_pending_news
+from services.ai_analyzer import analyze_pending_news, build_news_signal_metadata
 import models
 import schemas
-from typing import List, Optional, Dict, Any
+from typing import List, Optional
 
 router = APIRouter(prefix="/news", tags=["뉴스"])
+
+
+def _serialize_news_items(news_items: List[models.News]) -> List[schemas.NewsResponse]:
+    return [schemas.NewsResponse.model_validate(item) for item in news_items]
 
 # --- 섹터 관련 엔드포인트 ---
 
@@ -60,19 +64,81 @@ def get_dashboard_summary(db: Session = Depends(get_db)):
         ))
     return result
 
+
+@router.get("/high-impact", response_model=List[schemas.NewsImpactResponse])
+def get_high_impact_news(
+    limit: int = Query(20, ge=1, le=100, description="최대 뉴스 개수"),
+    sector_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+):
+    query = db.query(models.News)
+    if sector_id:
+        query = query.filter(models.News.sector_id == sector_id)
+
+    recent_news = query.order_by(models.News.published_at.desc()).limit(200).all()
+    enriched_items = []
+
+    for news in recent_news:
+        signal = build_news_signal_metadata(news)
+        if not signal["is_high_impact"]:
+            continue
+
+        payload = schemas.NewsImpactResponse.model_validate(
+            {
+                "id": news.id,
+                "sector_id": news.sector_id,
+                "title": news.title,
+                "content": news.content,
+                "url": news.url,
+                "published_at": news.published_at,
+                "sentiment_score": news.sentiment_score or 0.0,
+                "sentiment_label": news.sentiment_label or "neutral",
+                "ai_summary": news.ai_summary,
+                "collected_at": news.collected_at,
+                "sector": news.sector,
+                "impact_score": signal["impact_score"],
+                "event_type": signal["event_type"],
+                "impact_tier": signal["impact_tier"],
+                "impact_display": signal["impact_display"],
+                "is_high_impact": signal["is_high_impact"],
+            }
+        )
+        enriched_items.append((signal["impact_score"], signal["event_priority"], news.published_at, payload))
+
+    enriched_items.sort(
+        key=lambda item: (
+            -item[0],
+            item[1],
+            -(item[2].timestamp() if item[2] else 0),
+        )
+    )
+    return [item[3] for item in enriched_items[:limit]]
+
 # --- 페이지네이션 적용된 뉴스 목록 엔드포인트 ---
 
-@router.get("/", response_model=Dict[str, Any])
+@router.get("/", response_model=schemas.NewsListResponse)
 def get_all_news(
-    page: int = Query(1, ge=1, description="현재 페이지 번호"),
-    size: int = Query(10, ge=1, le=100, description="페이지당 뉴스 개수"),
+    page: Optional[int] = Query(None, ge=1, description="현재 페이지 번호"),
+    size: Optional[int] = Query(None, ge=1, le=100, description="페이지당 뉴스 개수"),
+    limit: Optional[int] = Query(None, ge=1, le=100, description="이전 호환용 limit"),
+    skip: Optional[int] = Query(None, ge=0, description="이전 호환용 skip"),
     sector_id: Optional[int] = None,
     db: Session = Depends(get_db),
 ):
     """
     숫자 페이지네이션을 지원하는 전체 뉴스 목록 API
     """
-    skip = (page - 1) * size
+    if limit is not None:
+        size = limit
+    if size is None:
+        size = 10
+
+    if skip is not None:
+        page = (skip // size) + 1
+    if page is None:
+        page = 1
+
+    offset = (page - 1) * size
     query = db.query(models.News)
     
     if sector_id:
@@ -84,7 +150,7 @@ def get_all_news(
     # 2. 현재 페이지에 해당하는 데이터 가져오기
     news_items = (
         query.order_by(models.News.published_at.desc())
-        .offset(skip)
+        .offset(offset)
         .limit(size)
         .all()
     )
@@ -93,14 +159,16 @@ def get_all_news(
         "total": total_count,
         "page": page,
         "size": size,
-        "items": news_items
+        "items": _serialize_news_items(news_items),
     }
 
-@router.get("/sector/{sector_id}", response_model=Dict[str, Any])
+@router.get("/sector/{sector_id}", response_model=schemas.NewsListResponse)
 def get_news_by_sector(
     sector_id: int,
-    page: int = Query(1, ge=1),
-    size: int = Query(10, ge=1, le=100),
+    page: Optional[int] = Query(None, ge=1),
+    size: Optional[int] = Query(None, ge=1, le=100),
+    limit: Optional[int] = Query(None, ge=1, le=100),
+    skip: Optional[int] = Query(None, ge=0),
     db: Session = Depends(get_db),
 ):
     """
@@ -110,13 +178,23 @@ def get_news_by_sector(
     if not sector:
         raise HTTPException(status_code=404, detail="섹터를 찾을 수 없습니다.")
         
-    skip = (page - 1) * size
+    if limit is not None:
+        size = limit
+    if size is None:
+        size = 10
+
+    if skip is not None:
+        page = (skip // size) + 1
+    if page is None:
+        page = 1
+
+    offset = (page - 1) * size
     query = db.query(models.News).filter(models.News.sector_id == sector_id)
     
     total_count = query.count()
     news_items = (
         query.order_by(models.News.published_at.desc())
-        .offset(skip)
+        .offset(offset)
         .limit(size)
         .all()
     )
@@ -125,7 +203,7 @@ def get_news_by_sector(
         "total": total_count,
         "page": page,
         "size": size,
-        "items": news_items
+        "items": _serialize_news_items(news_items),
     }
 
 # --- 작업 트리거 및 분석 엔드포인트 ---

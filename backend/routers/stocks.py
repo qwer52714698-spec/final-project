@@ -37,7 +37,7 @@ def analyze_stock(symbol: str, db: Session = Depends(get_db)):
         if "error" in analysis_result:
             raise HTTPException(status_code=500, detail=analysis_result["error"])
 
-        # 3. 예측 결과 저장 (이제 stock이 무조건 존재하므로 무조건 실행됨)
+        # 3. 예측 결과 저장 
         new_prediction = models.StockPrediction(
             stock_id=stock.id,
             ticker=ticker,

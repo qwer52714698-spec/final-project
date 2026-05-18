@@ -11,4 +11,8 @@ export const stocksApi = {
     api.get(`/stocks/${symbol}/prices`, { params: { days } }),
 
   collectStockPrices: () => api.post('/stocks/collect'),
+
+  // ✅ AI 주가 예측 추가
+  analyzeStock: (symbol) =>
+    api.get(`/stocks/${symbol}/analyze`),
 }

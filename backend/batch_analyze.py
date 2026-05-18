@@ -3,7 +3,7 @@ import time
 from sqlalchemy import create_all
 from database import SessionLocal
 import models
-
+SERVER_URL = os.environ.get("RENDER_EXTERNAL_URL", "http://localhost:8000")
 def run_batch_analysis():
     db = SessionLocal()
     # 1. DB에 등록된 모든 종목 가져오기
@@ -18,7 +18,7 @@ def run_batch_analysis():
         
         try:
             # 2. 우리가 만든 API를 내부적으로 호출
-            response = requests.get(f"http://localhost:8000/stocks/{symbol}/analyze")
+            response = requests.get(f"{SERVER_URL}/stocks/{symbol}/analyze")
             
             if response.status_code == 200:
                 print(f"✅ {symbol} 완료: {response.json()['data']['prediction']}")

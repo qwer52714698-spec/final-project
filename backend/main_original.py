@@ -8,7 +8,7 @@ import requests
 import threading
 import time
 from services.ai_analyzer import analyze_pending_news # 뉴스 분석 엔진 임포트
-
+SERVER_URL = os.environ.get("RENDER_EXTERNAL_URL", "http://localhost:8000")
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="주식 트렌드 예측 에이전트 API", version="1.0.0")
@@ -42,7 +42,7 @@ def run_full_analysis():
         all_stocks = db.query(models.Stock).all()
         for stock in all_stocks:
             try:
-                requests.get(f"http://localhost:8000/stocks/{stock.symbol}/analyze", timeout=60)
+                requests.get(f"{SERVER_URL}/stocks/{stock.symbol}/analyze", timeout=60)
                 print(f"✅ {stock.symbol} 주가 예측 완료")
                 time.sleep(1) 
             except Exception as e:

@@ -1,7 +1,7 @@
 import sys
 import os
 from types import ModuleType
-
+SERVER_URL = os.environ.get("RENDER_EXTERNAL_URL", "http://localhost:8000")
 fake_pkg_resources = ModuleType('pkg_resources')
 
 
@@ -71,7 +71,7 @@ def run_full_analysis():
             failed = []
             for symbol in pending:
                 try:
-                    res = requests.get(f"http://localhost:8000/stocks/{symbol}/analyze", timeout=60)
+                    res = requests.get(f"{SERVER_URL}/stocks/{symbol}/analyze", timeout=60)
                     if res.status_code == 200:
                         print(f"✅ {symbol} 주가 예측 완료")
                     else:

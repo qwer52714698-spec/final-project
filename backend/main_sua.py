@@ -8,7 +8,7 @@ import requests
 import threading
 import time
 from services.ai_analyzer import analyze_pending_news # 뉴스 분석 엔진 임포트
-
+SERVER_URL = os.environ.get("RENDER_EXTERNAL_URL", "http://localhost:8000")
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="주식 트렌드 예측 에이전트 API", version="1.0.0")
@@ -55,7 +55,7 @@ def run_full_analysis():
             failed = []  # 이번 라운드에서 실패한 종목 저장
             for symbol in pending:
                 try:
-                    res = requests.get(f"http://localhost:8000/stocks/{symbol}/analyze", timeout=60)
+                    res = requests.get(f"{SERVER_URL}/stocks/{symbol}/analyze", timeout=60)
                     if res.status_code == 200:
                         print(f"✅ {symbol} 주가 예측 완료")
                     else:

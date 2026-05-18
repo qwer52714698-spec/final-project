@@ -4,10 +4,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from config import settings
 
-if os.environ.get("RENDER"):
-    SQLALCHEMY_DATABASE_URL = os.environ.get("DATABASE_URL")
-else:
-    SQLALCHEMY_DATABASE_URL = settings.DATABASE_URL
+SQLALCHEMY_DATABASE_URL = os.environ.get("DATABASE_URL") or settings.DATABASE_URL
 
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL, 

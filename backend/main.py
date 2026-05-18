@@ -1,3 +1,6 @@
+import sys
+import setuptools
+sys.modules['pkg_resources'] = setuptools.lazy_wheel.pkg_resources
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database import engine, SessionLocal
@@ -89,3 +92,10 @@ def startup_event():
 @app.get("/")
 def read_root():
     return {"status": "online", "message": "뉴스/주가 통합 자동 분석 시스템 가동 중"}
+
+if __name__ == "__main__":
+    import uvicorn
+    import os
+    
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("main:app", host="0.0.0.0", port=port)

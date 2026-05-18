@@ -1,23 +1,23 @@
 from pydantic_settings import BaseSettings
 from functools import lru_cache
-
+import os
 
 class Settings(BaseSettings):
-    # DB 연결 정보 (Supabase 주소를 .env에 넣으시면 됩니다)
-    DATABASE_URL: str = "postgresql+psycopg2://postgres:password@localhost:5432/stock_trend_db"
+    DATABASE_URL: str = os.environ.get("DATABASE_URL", "postgresql://postgres:password@localhost:5432/stock_trend_db")
     
-    # 인증 관련
-    SECRET_KEY: str = "change-this-secret-key-in-production"
-    ALGORITHM: str = "HS256"
+    SECRET_KEY: str = os.environ.get("SECRET_KEY", "change-this-secret-key-in-production")
+    ALGORITHM: str = os.environ.get("ALGORITHM", "HS256")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
     
-    # AI 및 API 키 (GEMINI 대신 OPENAI 사용)
-    OPENAI_API_KEY: str = ""  # 변수명을 OPENAI_API_KEY로 변경
-    NAVER_CLIENT_ID: str = ""
-    NAVER_CLIENT_SECRET: str = ""
+    OPENAI_API_KEY: str = os.environ.get("OPENAI_API_KEY", "")
+    NAVER_CLIENT_ID: str = os.environ.get("NAVER_CLIENT_ID", "")
+    NAVER_CLIENT_SECRET: str = os.environ.get("NAVER_CLIENT_SECRET", "")
 
     class Config:
         env_file = ".env"
+        env_file_encoding = 'utf-8'
+
+settings = Settings()
 
 
 @lru_cache()

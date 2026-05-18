@@ -1,9 +1,21 @@
 import sys
+import os
 from types import ModuleType
+
 fake_pkg_resources = ModuleType('pkg_resources')
+
+
+def mock_resource_filename(package, resource):
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    venv_pykrx_dir = os.path.join(os.path.dirname(base_dir), '.venv', 'lib', 'python3.12', 'site-packages', 'pykrx')
+    return os.path.join(venv_pykrx_dir, resource)
+
+fake_pkg_resources.resource_filename = mock_resource_filename
 fake_pkg_resources.declare_namespace = lambda name: None
 fake_pkg_resources.get_distribution = lambda name: None
+
 sys.modules['pkg_resources'] = fake_pkg_resources
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database import engine, SessionLocal

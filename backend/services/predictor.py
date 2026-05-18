@@ -61,18 +61,28 @@ class StockPredictor:
             return {"error": "분석 가능한 데이터가 부족합니다."}
 
         data = self.prepare_features(raw_data)
+        if data is None or data.empty:
+            return {"error": "전처리 후 학습 가능한 데이터가 없습니다."}
         
         feature_cols = [
             'Close', 'Volume', 'interest_rate', 'exchange_rate', 'oil_price', 
-            'sp500', 'inst_5d', 'foreign_5d', 'volatility', 'val_score'
+            'sp500', 'inst_5d', 'foreign_5d', 'volatility', 'val_score',
+            'news_count', 'avg_sentiment_score', 'avg_impact_score',
+            'positive_count', 'negative_count', 'neutral_count',
+            'earnings_count', 'policy_regulation_count',
+            'supply_contract_count', 'labor_legal_count',
         ]
         
         X = data[feature_cols]
         X = X.loc[:, ~X.columns.duplicated()]
         y = data['target']
+        if len(X) < 10 or len(y) < 10:
+            return {"error": "학습용 데이터가 부족해 예측을 수행할 수 없습니다."}
 
         # 데이터가 너무 적으면 split 시 에러가 날 수 있으므로 shuffle=False 유지
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.1, shuffle=False)
+        if len(X_train) == 0 or len(y_train) == 0:
+            return {"error": "학습 구간 데이터가 비어 있어 예측을 수행할 수 없습니다."}
         self.model.fit(X_train, y_train)
 
         # 내일 방향 예측

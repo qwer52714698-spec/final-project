@@ -5,11 +5,11 @@ export const newsApi = {
 
   getDashboardSummary: () => api.get('/news/dashboard-summary'),
 
-  getNewsBySector: (sectorId, limit = 20, skip = 0) => 
-    api.get(`/news/sector/${sectorId}`, { params: { limit, skip } }),
+  getNewsBySector: (sectorId, page = 1, size = 20) => 
+    api.get(`/news/sector/${sectorId}`, { params: { page, size } }),
 
-  getAllNews: (limit = 30, skip = 0, sectorId = null) => 
-    api.get('/news/', { params: { limit, skip, sector_id: sectorId } }),
+  getAllNews: (page = 1, size = 30, sectorId = null) => 
+    api.get('/news/', { params: { page, size, sector_id: sectorId } }),
 
   collectNews: (sectorId = null) => 
     api.post('/news/collect', null, { params: { sector_id: sectorId } }),

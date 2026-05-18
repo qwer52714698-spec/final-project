@@ -72,10 +72,26 @@ class StockPredictor:
             'earnings_count', 'policy_regulation_count',
             'supply_contract_count', 'labor_legal_count',
         ]
+        news_feature_cols = [
+            'news_count', 'avg_sentiment_score', 'avg_impact_score',
+            'positive_count', 'negative_count', 'neutral_count',
+            'earnings_count', 'policy_regulation_count',
+            'supply_contract_count', 'labor_legal_count',
+        ]
         
         X = data[feature_cols]
         X = X.loc[:, ~X.columns.duplicated()]
         y = data['target']
+        news_stats = []
+        for col in news_feature_cols:
+            series = X[col]
+            nonzero_count = int((series != 0).sum())
+            mean_value = float(series.mean()) if len(series) else 0.0
+            last_value = float(series.iloc[-1]) if len(series) else 0.0
+            news_stats.append(
+                f"{col}(nonzero={nonzero_count}, mean={mean_value:.4f}, last={last_value:.4f})"
+            )
+        print(f"🧠 [predictor 뉴스 통계] {self.ticker}: " + ", ".join(news_stats))
         if len(X) < 10 or len(y) < 10:
             return {"error": "학습용 데이터가 부족해 예측을 수행할 수 없습니다."}
 
@@ -98,7 +114,7 @@ class StockPredictor:
         # 특성 중요도 추출
         importances = self.model.feature_importances_
         importance_dict = {col: float(imp) for col, imp in zip(feature_cols, importances)}
-        top_factors = dict(sorted(importance_dict.items(), key=lambda x: x[1], reverse=True)[:3])
+        top_factors = dict(sorted(importance_dict.items(), key=lambda x: x[1], reverse=True)[:10])
 
         return {
             "prediction": prediction,

@@ -8,12 +8,35 @@ from datetime import datetime, timedelta
 
 router = APIRouter(prefix="/stocks", tags=["주식"])
 
+
+def _resolve_stock(db: Session, symbol: str):
+    pure_symbol = symbol.split(".")[0]
+    candidate_symbols = [pure_symbol, f"{pure_symbol}.KS", f"{pure_symbol}.KQ"]
+    candidates = db.query(models.Stock).filter(models.Stock.symbol.in_(candidate_symbols)).all()
+    if not candidates:
+        return None
+
+    preferred = [stock for stock in candidates if stock.name and not stock.name.startswith("Stock_")]
+    exact_pure = [stock for stock in preferred if stock.symbol == pure_symbol]
+    if exact_pure:
+        return exact_pure[0]
+
+    exact_ks = [stock for stock in preferred if stock.symbol == f"{pure_symbol}.KS"]
+    if exact_ks:
+        return exact_ks[0]
+
+    exact_kq = [stock for stock in preferred if stock.symbol == f"{pure_symbol}.KQ"]
+    if exact_kq:
+        return exact_kq[0]
+
+    return preferred[0] if preferred else candidates[0]
+
 @router.get("/{symbol}/analyze")
 def analyze_stock(symbol: str, db: Session = Depends(get_db)):
     pure_symbol = symbol.split('.')[0]
     
     # 1. DB에서 종목 확인
-    stock = db.query(models.Stock).filter(models.Stock.symbol == pure_symbol).first()
+    stock = _resolve_stock(db, symbol)
     
     # 2. 만약 DB에 종목이 없으면 강제로 생성 (Sector ID는 임의로 1번 할당)
     if not stock:
@@ -84,7 +107,7 @@ def get_sector_stocks_with_prices(sector_id: int, days: int = 90, db: Session = 
 
 @router.get("/{symbol}/prices", response_model=List[schemas.StockPriceResponse])
 def get_stock_prices(symbol: str, days: int = 90, db: Session = Depends(get_db)):
-    stock = db.query(models.Stock).filter(models.Stock.symbol == symbol).first()
+    stock = _resolve_stock(db, symbol)
     if not stock:
         raise HTTPException(status_code=404, detail="종목을 찾을 수 없습니다.")
 

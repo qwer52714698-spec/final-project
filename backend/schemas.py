@@ -129,6 +129,16 @@ class DailyStockNewsFeature(BaseModel):
     neutral_count: int
     event_type_counts: dict[str, int]
 
+
+class NewsFeatureCoverageItem(BaseModel):
+    stock_id: int
+    symbol: str
+    stock_name: Optional[str] = None
+    sector_id: int
+    news_stock_map_count: int
+    daily_feature_count: int
+    has_coverage: bool
+
 # 🌟 XGBoost 3진 분류(상승/하락/횡보) 결과를 프론트엔드에 전달할 스키마 추가
 class StockAnalysisResponse(BaseModel):
     status: str = "success"

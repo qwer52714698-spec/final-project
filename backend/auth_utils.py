@@ -5,11 +5,12 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import APIKeyHeader # 💡 더 유연한 검증을 위해 추가
 from sqlalchemy.orm import Session
 from database import SessionLocal
+from config import settings
 import models
 
-SECRET_KEY = "your-very-secret-key"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24
+SECRET_KEY = settings.SECRET_KEY
+ALGORITHM = settings.ALGORITHM
+ACCESS_TOKEN_EXPIRE_MINUTES = settings.ACCESS_TOKEN_EXPIRE_MINUTES
 
 # 💡 OAuth2PasswordBearer 대신 더 직관적인 APIKeyHeader를 사용해 봅니다.
 # 프론트에서 보내는 "Authorization" 헤더를 직접 읽습니다.

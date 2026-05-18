@@ -9,12 +9,55 @@ from collections import defaultdict
 MANUAL_STOCK_ALIASES = {
     "005930": ["삼성전자", "삼전"],
     "000660": ["sk하이닉스", "하이닉스"],
+    "373220": ["lg에너지솔루션", "lg엔솔", "lg energy solution"],
+    "006400": ["삼성sdi", "sdi"],
+    "096770": ["sk이노베이션", "sk이노", "sk innovation"],
+    "247540": ["에코프로비엠", "에코비엠", "ecopro bm"],
+    "086520": ["에코프로", "ecopro"],
+    "003670": ["포스코퓨처엠", "포퓨", "posco future m"],
+    "020150": ["롯데에너지머티리얼즈", "롯데머티", "에너지머티리얼즈"],
+    "010060": ["oci홀딩스", "oci"],
+    "298050": ["효성첨단소재", "효첨"],
     "035420": ["naver", "네이버"],
     "035720": ["카카오"],
     "323410": ["카카오뱅크", "카뱅"],
     "005380": ["현대차", "현대자동차"],
     "000270": ["기아"],
+    "012330": ["현대모비스", "모비스"],
+    "204320": ["hl만도", "만도"],
+    "086280": ["현대글로비스", "글로비스"],
+    "018880": ["한온시스템", "한온"],
+    "307950": ["현대오토에버", "오토에버"],
+    "084370": ["한국타이어앤테크놀로지", "한국타이어", "한타"],
     "068270": ["셀트리온"],
+    "259960": ["크래프톤", "krafton"],
+    "251270": ["넷마블", "netmarble"],
+    "018260": ["삼성sds", "sds", "삼성에스디에스"],
+    "017670": ["sk텔레콤", "skt", "sk telecom"],
+    "030200": ["kt", "케이티"],
+    "036570": ["엔씨소프트", "엔씨", "nc소프트", "ncsoft"],
+    "051910": ["lg화학", "lg chem"],
+    "207940": ["삼성바이오로직스", "삼바", "samsung biologics"],
+    "071050": ["한국금융지주", "한국금융", "한금지"],
+    "091990": ["셀트리온헬스케어", "셀헬", "celltrion healthcare"],
+    "120110": ["코오롱인더", "코오롱인더스트리", "kolon industries"],
+    "139130": ["dgb금융지주", "dgb금융", "디지비금융"],
+    "005490": ["posco홀딩스", "포스코홀딩스", "포홀", "posco"],
+    "034020": ["두산에너빌리티", "두산에너빌", "에너빌"],
+    "012450": ["한화에어로스페이스", "한화에어로"],
+    "047810": ["한국항공우주", "kai", "한국항공우주산업"],
+    "010140": ["삼성중공업", "삼중"],
+    "023530": ["롯데쇼핑", "롯쇼"],
+    "097950": ["cj제일제당", "cj제당"],
+    "004370": ["농심", "nongshim"],
+    "033780": ["kt&g", "케이티앤지"],
+    "090430": ["아모레퍼시픽", "아모레"],
+    "051900": ["lg생활건강", "lg생건", "엘지생활건강"],
+    "005300": ["롯데칠성", "롯칠"],
+    "271560": ["오리온", "orion"],
+    "003230": ["삼양식품", "삼양"],
+    "008770": ["호텔신라", "신라호텔"],
+    "069960": ["현대백화점", "현백"],
 }
 
 # 1. 뉴스 데이터 저장 (팀원들의 models.News 구조에 맞게 수정)
@@ -64,9 +107,14 @@ def _normalize_text(text: str) -> str:
 
 def _build_stock_aliases(stock: models.Stock) -> list[str]:
     aliases = [stock.symbol.lower()]
+    if "." in stock.symbol:
+        aliases.append(stock.symbol.split(".")[0].lower())
     if stock.name:
         aliases.append(stock.name.lower())
+        aliases.append(stock.name.lower().replace(" ", ""))
     aliases.extend(MANUAL_STOCK_ALIASES.get(stock.symbol, []))
+    if "." in stock.symbol:
+        aliases.extend(MANUAL_STOCK_ALIASES.get(stock.symbol.split(".")[0], []))
     return [alias.lower() for alias in aliases if alias]
 
 
@@ -77,40 +125,49 @@ def match_related_stocks(
     sector_id: int | None = None,
 ) -> list[schemas.StockNewsMatch]:
     combined_text = _normalize_text(f"{title or ''} {content or ''}")
-    query = db.query(models.Stock)
-    if sector_id:
-        query = query.filter(models.Stock.sector_id == sector_id)
-    stocks = query.all()
+    def _match_from_stocks(stocks: list[models.Stock]) -> list[schemas.StockNewsMatch]:
+        matches: list[schemas.StockNewsMatch] = []
+        for stock in stocks:
+            aliases = _build_stock_aliases(stock)
+            match_type = None
+            confidence = 0.0
 
-    matches: list[schemas.StockNewsMatch] = []
-    for stock in stocks:
-        aliases = _build_stock_aliases(stock)
-        match_type = None
-        confidence = 0.0
+            for alias in aliases:
+                if alias and alias in combined_text:
+                    normalized_name = stock.name.lower() if stock.name else ""
+                    normalized_name_no_space = normalized_name.replace(" ", "")
+                    normalized_symbol = stock.symbol.lower()
+                    normalized_symbol_no_suffix = normalized_symbol.split(".")[0]
 
-        for alias in aliases:
-            if alias and alias in combined_text:
-                if stock.name and alias == stock.name.lower():
-                    match_type = "name"
-                    confidence = 0.95
-                    break
-                if alias == stock.symbol.lower():
-                    match_type = "symbol"
-                    confidence = 0.9
-                    break
-                match_type = "alias"
-                confidence = max(confidence, 0.8)
+                    if stock.name and alias in {normalized_name, normalized_name_no_space}:
+                        match_type = "name"
+                        confidence = 0.95
+                        break
+                    if alias in {normalized_symbol, normalized_symbol_no_suffix}:
+                        match_type = "symbol"
+                        confidence = 0.9
+                        break
+                    match_type = "alias"
+                    confidence = max(confidence, 0.8)
 
-        if match_type:
-            matches.append(
-                schemas.StockNewsMatch(
-                    stock_id=stock.id,
-                    symbol=stock.symbol,
-                    stock_name=stock.name,
-                    match_type=match_type,
-                    confidence=confidence,
+            if match_type:
+                matches.append(
+                    schemas.StockNewsMatch(
+                        stock_id=stock.id,
+                        symbol=stock.symbol,
+                        stock_name=stock.name,
+                        match_type=match_type,
+                        confidence=confidence,
+                    )
                 )
-            )
+        return matches
+
+    sector_stocks = db.query(models.Stock).filter(models.Stock.sector_id == sector_id).all() if sector_id else []
+    matches = _match_from_stocks(sector_stocks) if sector_stocks else []
+
+    if not matches:
+        all_stocks = db.query(models.Stock).all()
+        matches = _match_from_stocks(all_stocks)
 
     matches.sort(key=lambda item: (-item.confidence, item.stock_id))
     return matches
@@ -324,3 +381,59 @@ def refresh_news_feature_store(
         "matched_stock_count": len(affected_stock_ids),
         "daily_feature_rows": rebuilt_rows,
     }
+
+
+def get_news_feature_coverage(
+    db: Session,
+    zero_only: bool = False,
+    limit: int = 50,
+) -> list[schemas.NewsFeatureCoverageItem]:
+    map_counts = dict(
+        db.query(
+            models.NewsStockMap.stock_id,
+            func.count(models.NewsStockMap.id),
+        )
+        .group_by(models.NewsStockMap.stock_id)
+        .all()
+    )
+    daily_counts = dict(
+        db.query(
+            models.DailyStockNewsFeature.stock_id,
+            func.count(models.DailyStockNewsFeature.id),
+        )
+        .group_by(models.DailyStockNewsFeature.stock_id)
+        .all()
+    )
+
+    stocks = db.query(models.Stock).order_by(models.Stock.symbol.asc()).all()
+    items: list[schemas.NewsFeatureCoverageItem] = []
+    for stock in stocks:
+        if stock.name and stock.name.startswith("Stock_"):
+            continue
+        map_count = int(map_counts.get(stock.id, 0) or 0)
+        daily_count = int(daily_counts.get(stock.id, 0) or 0)
+        has_coverage = map_count > 0 and daily_count > 0
+        if zero_only and has_coverage:
+            continue
+
+        items.append(
+            schemas.NewsFeatureCoverageItem(
+                stock_id=stock.id,
+                symbol=stock.symbol,
+                stock_name=stock.name,
+                sector_id=stock.sector_id,
+                news_stock_map_count=map_count,
+                daily_feature_count=daily_count,
+                has_coverage=has_coverage,
+            )
+        )
+
+    items.sort(
+        key=lambda item: (
+            item.has_coverage,
+            item.daily_feature_count,
+            item.news_stock_map_count,
+            item.symbol,
+        )
+    )
+    return items[:limit]

@@ -75,10 +75,12 @@ class MarketDataCollector:
         try:
             stock = db.query(models.Stock).filter(models.Stock.symbol == pure_ticker).first()
             if not stock:
+                print(f"📰 [뉴스 feature merge] {pure_ticker}: 종목 매핑 없음")
                 return base_df.join(news_feature_df, how='left')
 
             daily_features = crud.get_stored_daily_stock_news_features(db, stock.id, start_date, end_date)
             if not daily_features:
+                print(f"📰 [뉴스 feature merge] {pure_ticker}: 저장된 일자 feature 없음")
                 return base_df.join(news_feature_df, how='left')
 
             rows = []
@@ -101,6 +103,7 @@ class MarketDataCollector:
 
             feature_frame = pd.DataFrame(rows)
             if feature_frame.empty:
+                print(f"📰 [뉴스 feature merge] {pure_ticker}: feature_frame 비어 있음")
                 return base_df.join(news_feature_df, how='left')
 
             feature_frame = feature_frame.set_index('date')
@@ -110,6 +113,14 @@ class MarketDataCollector:
 
             for column in feature_columns:
                 merged[column] = merged[column].fillna(0.0)
+
+            news_row_count = len(feature_frame)
+            total_news_count = int(feature_frame['news_count'].sum()) if 'news_count' in feature_frame else 0
+            nonzero_days = int((feature_frame['news_count'] > 0).sum()) if 'news_count' in feature_frame else 0
+            print(
+                f"📰 [뉴스 feature merge] {pure_ticker}: 저장 row {news_row_count}건, "
+                f"news_count 합계 {total_news_count}, 비영일자 {nonzero_days}건"
+            )
             return merged
         finally:
             db.close()

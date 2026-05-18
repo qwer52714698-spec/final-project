@@ -1,6 +1,9 @@
 import sys
-import setuptools
-sys.modules['pkg_resources'] = setuptools.lazy_wheel.pkg_resources
+from types import ModuleType
+fake_pkg_resources = ModuleType('pkg_resources')
+fake_pkg_resources.declare_namespace = lambda name: None
+fake_pkg_resources.get_distribution = lambda name: None
+sys.modules['pkg_resources'] = fake_pkg_resources
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database import engine, SessionLocal

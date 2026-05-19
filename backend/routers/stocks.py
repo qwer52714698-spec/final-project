@@ -12,10 +12,8 @@ router = APIRouter(prefix="/stocks", tags=["주식"])
 def analyze_stock(symbol: str, db: Session = Depends(get_db)):
     pure_symbol = symbol.split('.')[0]
     
-    # 1. DB에서 종목 확인
     stock = db.query(models.Stock).filter(models.Stock.symbol == pure_symbol).first()
     
-    # 2. 만약 DB에 종목이 없으면 강제로 생성 (Sector ID는 임의로 1번 할당)
     if not stock:
         print(f"🛠️ {pure_symbol} 종목이 없어 새로 생성합니다.")
         new_stock = models.Stock(
@@ -37,7 +35,6 @@ def analyze_stock(symbol: str, db: Session = Depends(get_db)):
         if "error" in analysis_result:
             raise HTTPException(status_code=500, detail=analysis_result["error"])
 
-        # 3. 예측 결과 저장 
         new_prediction = models.StockPrediction(
             stock_id=stock.id,
             ticker=ticker,
@@ -70,7 +67,7 @@ def get_sector_stocks_with_prices(sector_id: int, days: int = 90, db: Session = 
 
     stocks = db.query(models.Stock).filter(models.Stock.sector_id == sector_id).all()
     result = []
-    cutoff = datetime.utcnow() - timedelta(days=days)
+    cutoff = (datetime.now() - timedelta(days=days)).date()
 
     for stock in stocks:
         prices = (
@@ -88,7 +85,7 @@ def get_stock_prices(symbol: str, days: int = 90, db: Session = Depends(get_db))
     if not stock:
         raise HTTPException(status_code=404, detail="종목을 찾을 수 없습니다.")
 
-    cutoff = datetime.utcnow() - timedelta(days=days)
+    cutoff = (datetime.now() - timedelta(days=days)).date()
     return (
         db.query(models.StockPrice)
         .filter(models.StockPrice.stock_id == stock.id, models.StockPrice.date >= cutoff)

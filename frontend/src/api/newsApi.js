@@ -5,19 +5,19 @@ export const newsApi = {
 
   getDashboardSummary: () => api.get('/news/dashboard-summary'),
 
-  // ✅ limit/skip → page/size 로 수정
   getNewsBySector: (sectorId, page = 1, size = 20) => 
     api.get(`/news/sector/${sectorId}`, { params: { page, size } }),
 
-  // ✅ limit/skip → page/size 로 수정
   getAllNews: (page = 1, size = 30, sectorId = null) => 
     api.get('/news/', { params: { page, size, sector_id: sectorId } }),
+
+  getStockNews: (symbol, page = 1, size = 1000) => 
+    api.get(`/news/stock/${symbol}`, { params: { page, size } }),
 
   collectNews: (sectorId = null) => 
     api.post('/news/collect', null, { params: { sector_id: sectorId } }),
 
   analyzeNews: () => api.post('/news/analyze'),
 
-  // 🆕 개별 뉴스 AI 감성분석
   analyzeSingleNews: (newsId) => api.post(`/news/${newsId}/analyze`),
 }

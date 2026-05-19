@@ -6,6 +6,7 @@ import SectorStocks from './pages/SectorStocks'
 import AllNews from './pages/AllNews'
 import Login from './pages/Login'
 import Signup from './pages/Signup'
+import StockNewsDetail from './pages/StockNewsDetail'
 
 function App() {
   return (
@@ -18,6 +19,7 @@ function App() {
             <Route path="/news" element={<AllNews />} />
             <Route path="/sector/:sectorId/news" element={<SectorNews />} />
             <Route path="/sector/:sectorId/stocks" element={<SectorStocks />} />
+            <Route path="/stock/:symbol/news" element={<StockNewsDetail />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
           </Routes>

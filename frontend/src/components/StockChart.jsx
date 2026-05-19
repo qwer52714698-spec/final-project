@@ -108,10 +108,32 @@ function StockChart({ stock, prices }) {
               </div>
             </div>
 
-            {/* 신뢰도 */}
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-center">
-              <div className="text-xs text-gray-500 mb-1">신뢰도</div>
-              <div className="text-xl font-bold text-gray-800">{prediction.confidence}</div>
+            {/* 수익률 분석 */}
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+              <div className="text-xs text-gray-500 mb-2 text-center">최근 5영업일 수익률</div>
+              <div className="flex flex-col gap-1.5">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-gray-500">실제 수익률</span>
+                  <span className={`text-sm font-bold ${prediction.actual_return >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {prediction.actual_return >= 0 ? '+' : ''}{prediction.actual_return}%
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-gray-500">예측 수익률</span>
+                  <span className={`text-sm font-bold ${prediction.predicted_return >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {prediction.predicted_return >= 0 ? '+' : ''}{prediction.predicted_return}%
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-gray-500">승률</span>
+                  <span className={`text-sm font-bold ${prediction.win_rate >= 60 ? 'text-green-600' : 'text-gray-700'}`}>
+                    {prediction.win_rate}%
+                  </span>
+                </div>
+                <div className="text-xs text-gray-400 text-center mt-1">
+                  {prediction.period_start} ~ {prediction.period_end}
+                </div>
+              </div>
             </div>
 
             {/* 구분선 */}

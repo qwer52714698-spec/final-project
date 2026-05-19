@@ -1,11 +1,13 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import { stocksApi } from '../api/stocksApi'
 
 function StockChart({ stock, prices }) {
-  const [prediction, setPrediction] = useState(null)  // 예측 결과
-  const [analyzing, setAnalyzing] = useState(false)   // 분석 중 여부
-  const [error, setError] = useState(null)             // 에러 메시지
+  const navigate = useNavigate()
+  const [prediction, setPrediction] = useState(null)
+  const [analyzing, setAnalyzing] = useState(false)
+  const [error, setError] = useState(null)
 
   const chartData = prices.map(p => ({
     date: new Date(p.date).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' }),
@@ -27,21 +29,18 @@ function StockChart({ stock, prices }) {
     }
   }
 
-  // 예측 결과에 따른 색상/아이콘
   const getPredictionStyle = (pred) => {
     if (pred === '상승') return { color: 'text-green-600', bg: 'bg-green-50', border: 'border-green-200', icon: '↑' }
     if (pred === '하락') return { color: 'text-red-600',   bg: 'bg-red-50',   border: 'border-red-200',   icon: '↓' }
-    return                       { color: 'text-gray-500',  bg: 'bg-gray-50',  border: 'border-gray-200',  icon: '→' }
+    return               { color: 'text-gray-500',  bg: 'bg-gray-50',  border: 'border-gray-200',  icon: '→' }
   }
 
   const style = prediction ? getPredictionStyle(prediction.prediction) : null
 
-  // 영향 요인 최대값 (바 차트용)
   const maxFactor = prediction
     ? Math.max(...Object.values(prediction.top_influencers))
     : 1
 
-  // 영향 요인 한글 매핑
   const factorLabel = {
     Close:         '종가',
     Volume:        '거래량',
@@ -57,9 +56,11 @@ function StockChart({ stock, prices }) {
 
   return (
     <div className="bg-white rounded-lg shadow-md p-6">
-      {/* 헤더 */}
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-xl font-bold">
+        <h3 
+          onClick={() => navigate(`/stock/${stock.symbol}/news`)}
+          className="text-xl font-bold cursor-pointer hover:text-blue-600 hover:underline inline-block"
+        >
           {stock.name} ({stock.symbol})
         </h3>
         <button
@@ -71,16 +72,13 @@ function StockChart({ stock, prices }) {
         </button>
       </div>
 
-      {/* 에러 메시지 */}
       {error && (
         <div className="mb-4 text-sm text-red-600 bg-red-50 px-4 py-2 rounded-lg">
           {error}
         </div>
       )}
 
-      {/* 차트 + 사이드 패널 */}
       <div className={`flex gap-4 ${prediction ? 'items-start' : ''}`}>
-        {/* 차트 */}
         <div className="flex-1 min-w-0">
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={chartData}>
@@ -96,11 +94,8 @@ function StockChart({ stock, prices }) {
           </ResponsiveContainer>
         </div>
 
-        {/* 사이드 패널 - 예측 결과 있을 때만 표시 */}
         {prediction && (
           <div className="w-48 shrink-0 flex flex-col gap-3">
-
-            {/* 예측 결과 */}
             <div className={`rounded-lg border p-3 text-center ${style.bg} ${style.border}`}>
               <div className="text-xs text-gray-500 mb-1">내일 예측</div>
               <div className={`text-2xl font-bold ${style.color}`}>
@@ -108,13 +103,33 @@ function StockChart({ stock, prices }) {
               </div>
             </div>
 
-            {/* 신뢰도 */}
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-center">
-              <div className="text-xs text-gray-500 mb-1">신뢰도</div>
-              <div className="text-xl font-bold text-gray-800">{prediction.confidence}</div>
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+              <div className="text-xs text-gray-500 mb-2 text-center">최근 5영업일 수익률</div>
+              <div className="flex flex-col gap-1.5">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-gray-500">실제 수익률</span>
+                  <span className={`text-sm font-bold ${prediction.actual_return >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {prediction.actual_return >= 0 ? '+' : ''}{prediction.actual_return}%
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-gray-500">예측 수익률</span>
+                  <span className={`text-sm font-bold ${prediction.predicted_return >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {prediction.predicted_return >= 0 ? '+' : ''}{prediction.predicted_return}%
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-gray-500">승률</span>
+                  <span className={`text-sm font-bold ${prediction.win_rate >= 60 ? 'text-green-600' : 'text-gray-700'}`}>
+                    {prediction.win_rate}%
+                  </span>
+                </div>
+                <div className="text-xs text-gray-400 text-center mt-1">
+                  {prediction.period_start} ~ {prediction.period_end}
+                </div>
+              </div>
             </div>
 
-            {/* 구분선 */}
             <div className="border-t border-gray-100 pt-2">
               <div className="text-xs text-gray-400 mb-2">주요 영향 요인</div>
               <div className="flex flex-col gap-1.5">
@@ -135,11 +150,9 @@ function StockChart({ stock, prices }) {
               </div>
             </div>
 
-            {/* 분석 기준일 */}
             <div className="text-xs text-gray-400 text-center">
               기준일: {prediction.analysis_date}
             </div>
-
           </div>
         )}
       </div>

@@ -6,10 +6,10 @@ import models
 import schemas
 from typing import List
 from datetime import datetime
+
 router = APIRouter(tags=["댓글"])
 
-# ──  프론트 주소 대응용 엔드포인트 (뉴스 댓글 작성) ─────────────────
-@router.post("/news/{news_id}/comments", response_model=schemas.CommentResponse, summary="뉴스 댓글 작성 (프론트 연동)")
+@router.post("/news/{news_id}/comments", response_model=List[schemas.CommentResponse], summary="뉴스 댓글 작성 (프론트 연동)")
 def create_news_comment_compat(
     news_id: int,
     comment_data: schemas.CommentCreate,
@@ -27,11 +27,14 @@ def create_news_comment_compat(
     )
     db.add(new_comment)
     db.commit()
-    db.refresh(new_comment)
-    return new_comment
 
+    return (
+        db.query(models.Comment)
+        .filter(models.Comment.news_id == news_id)
+        .order_by(models.Comment.created_at.desc())
+        .all()
+    )
 
-# ──  프론트 주소 대응용 엔드포인트 (뉴스 댓글 조회) ─────────────────
 @router.get("/news/{news_id}/comments", response_model=List[schemas.CommentResponse], summary="뉴스 댓글 조회 (프론트 연동)")
 def get_news_comments_compat(
     news_id: int,
@@ -44,8 +47,6 @@ def get_news_comments_compat(
         .all()
     )
 
-
-# ──  표준 공용 댓글 작성 (종목 토크방 등 확장용) ──────────────────────────
 @router.post("/comments", response_model=schemas.CommentResponse, summary="공용 댓글 작성")
 def create_comment(
     comment_data: schemas.CommentCreate,
@@ -64,8 +65,6 @@ def create_comment(
     db.refresh(new_comment)
     return new_comment
 
-
-# ──  종목 토크방 댓글 조회 ──────────────────────────────────────────────────
 @router.get("/comments/stock/{stock_symbol}", response_model=List[schemas.CommentResponse], summary="종목별 댓글 조회")
 def get_comments_by_stock(
     stock_symbol: str,
@@ -78,8 +77,6 @@ def get_comments_by_stock(
         .all()
     )
 
-
-# ──  댓글 수정 ──────────────────────────────────────────────────────────────
 @router.put("/comments/{comment_id}", response_model=schemas.CommentResponse, summary="댓글 수정")
 def update_comment(
     comment_id: int,
@@ -100,8 +97,6 @@ def update_comment(
     db.refresh(comment)
     return comment
 
-
-# ──  댓글 삭제 ──────────────────────────────────────────────────────────────
 @router.delete("/comments/{comment_id}", summary="댓글 삭제")
 def delete_comment(
     comment_id: int,

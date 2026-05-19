@@ -130,6 +130,22 @@ function StockChart({ stock, prices }) {
               </div>
             </div>
 
+            {/* 🌟 조장님 전용 추가 장치: 일자별 주가 예측 매칭 결과 현황판 */}
+            <div className="bg-slate-50 border border-slate-200 rounded-lg p-2.5">
+              <div className="text-[10px] text-slate-500 mb-2 text-center font-bold tracking-wider">일자별 예측 신뢰도 검증</div>
+              <div className="flex flex-col gap-1 text-[11px]">
+                {prediction.history_log && prediction.history_log.map((log, idx) => (
+                  <div key={idx} className="flex justify-between items-center bg-white px-2 py-1 rounded border border-slate-100">
+                    <span className="text-slate-400 text-[10px]">{log.date}</span>
+                    <span className="text-slate-600 font-medium">{log.predicted}</span>
+                    <span className={`font-bold text-[12px] ${log.is_correct ? 'text-emerald-500' : 'text-rose-400'}`}>
+                      {log.is_correct ? '●' : '×'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             <div className="border-t border-gray-100 pt-2">
               <div className="text-xs text-gray-400 mb-2">주요 영향 요인</div>
               <div className="flex flex-col gap-1.5">

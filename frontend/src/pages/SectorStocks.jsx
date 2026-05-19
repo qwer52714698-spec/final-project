@@ -92,7 +92,7 @@ function SectorStocks() {
       ) : (
         <div className="space-y-6">
           {stocksWithPrices.map(({ stock, prices }) => (
-            prices.length > 0 && (
+            prices && prices.length > 0 && (
               <StockChart key={stock.id} stock={stock} prices={prices} />
             )
           ))}

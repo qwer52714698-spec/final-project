@@ -117,13 +117,11 @@ class StockPredictor:
             pos = data.index.get_loc(idx)
             if pos + 1 >= len(data):
                 continue
-            row_probs = self.model.predict_proba(X.loc[[idx]])[0]
-            if np.argmax(row_probs) == 2:  # 상승 예측 → 매수
-                cur = float(close_series.iloc[pos])
-                nxt = float(close_series.iloc[pos + 1])
-                pred_price = float(self.regressor.predict(X.loc[[idx]])[0])
-                actual_returns_list.append((nxt - cur) / cur * 100)
-                predicted_returns_list.append((pred_price - cur) / cur * 100)
+            cur = float(close_series.iloc[pos])
+            nxt = float(close_series.iloc[pos + 1])
+            pred_price = float(self.regressor.predict(X.loc[[idx]])[0])
+            actual_returns_list.append((nxt - cur) / cur * 100)
+            predicted_returns_list.append((pred_price - cur) / cur * 100)
 
         if actual_returns_list:
             cumulative_actual = round(sum(actual_returns_list), 2)

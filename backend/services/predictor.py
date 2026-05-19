@@ -99,6 +99,9 @@ class StockPredictor:
         prediction = mapping[pred_class]
         confidence = probs[pred_class]
 
+        # 내일 종가 예측 (회귀 모델)
+        predicted_next_price = round(float(self.regressor.predict(last_data)[0]), 2)
+
         # 특성 중요도 추출
         importances = self.model.feature_importances_
         importance_dict = {col: float(imp) for col, imp in zip(feature_cols, importances)}
@@ -142,4 +145,5 @@ class StockPredictor:
             "win_rate": win_rate,
             "period_start": X.index[-6].strftime('%Y-%m-%d'),
             "period_end": X.index[-2].strftime('%Y-%m-%d'),
+            "predicted_next_close": predicted_next_price,
         }

@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from . import models, schemas
+import models, schemas
 import json
 
 # 1. 뉴스 데이터 저장 (팀원들의 models.News 구조에 맞게 수정)
@@ -42,3 +42,37 @@ def get_sector_stats(db: Session):
         func.count(models.News.id).label("news_count"),
         func.avg(models.News.sentiment_score).label("avg_sentiment")
     ).join(models.News).group_by(models.Sector.name).all()
+
+
+def resolve_stock_by_symbol(db: Session, symbol: str):
+    pure_symbol = symbol.split(".")[0]
+    candidate_symbols = [pure_symbol, f"{pure_symbol}.KS", f"{pure_symbol}.KQ"]
+    candidates = db.query(models.Stock).filter(models.Stock.symbol.in_(candidate_symbols)).all()
+    if not candidates:
+        return None
+
+    preferred = [stock for stock in candidates if stock.name and not stock.name.startswith("Stock_")]
+    for candidate_symbol in [pure_symbol, f"{pure_symbol}.KS", f"{pure_symbol}.KQ"]:
+        for stock in preferred:
+            if stock.symbol == candidate_symbol:
+                return stock
+
+    return preferred[0] if preferred else candidates[0]
+
+
+def get_stored_daily_stock_news_features(
+    db: Session,
+    stock_id: int,
+    start_date,
+    end_date,
+):
+    return (
+        db.query(models.DailyStockNewsFeature)
+        .filter(
+            models.DailyStockNewsFeature.stock_id == stock_id,
+            models.DailyStockNewsFeature.date >= start_date.date(),
+            models.DailyStockNewsFeature.date <= end_date.date(),
+        )
+        .order_by(models.DailyStockNewsFeature.date.asc())
+        .all()
+    )

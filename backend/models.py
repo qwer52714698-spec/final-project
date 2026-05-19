@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, Float, DateTime, ForeignKey, BigInteger, JSON
+from sqlalchemy import Column, Integer, String, Text, Float, DateTime, ForeignKey, BigInteger, JSON, Date, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from database import Base
@@ -43,6 +43,7 @@ class News(Base):
 
     sector = relationship("Sector", back_populates="news_items")
     comments = relationship("Comment", back_populates="news", cascade="all, delete-orphan")
+    stock_matches = relationship("NewsStockMap", back_populates="news", cascade="all, delete-orphan")
 
 class Post(Base):
     __tablename__ = "posts"
@@ -87,6 +88,8 @@ class Stock(Base):
     prices = relationship("StockPrice", back_populates="stock", cascade="all, delete-orphan")
     sector = relationship("Sector", back_populates="stocks")
     predictions = relationship("StockPrediction", back_populates="stock", cascade="all, delete-orphan")
+    news_matches = relationship("NewsStockMap", back_populates="stock", cascade="all, delete-orphan")
+    daily_news_features = relationship("DailyStockNewsFeature", back_populates="stock", cascade="all, delete-orphan")
 
 class StockPrice(Base):
     __tablename__ = "stock_prices"
@@ -115,3 +118,44 @@ class StockPrediction(Base):
     created_at = Column(DateTime, default=func.now())
 
     stock = relationship("Stock", back_populates="predictions")
+
+
+class NewsStockMap(Base):
+    __tablename__ = "news_stock_map"
+    __table_args__ = (
+        UniqueConstraint("news_id", "stock_id", name="uq_news_stock_map_news_stock"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    news_id = Column(Integer, ForeignKey("news.id"), nullable=False, index=True)
+    stock_id = Column(Integer, ForeignKey("stocks.id"), nullable=False, index=True)
+    match_type = Column(String(20), nullable=False)
+    confidence = Column(Float, default=0.0, nullable=False)
+    created_at = Column(DateTime, default=func.now(), nullable=False)
+
+    news = relationship("News", back_populates="stock_matches")
+    stock = relationship("Stock", back_populates="news_matches")
+
+
+class DailyStockNewsFeature(Base):
+    __tablename__ = "daily_stock_news_features"
+    __table_args__ = (
+        UniqueConstraint("stock_id", "date", name="uq_daily_stock_news_features_stock_date"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    stock_id = Column(Integer, ForeignKey("stocks.id"), nullable=False, index=True)
+    date = Column(Date, nullable=False, index=True)
+    news_count = Column(Integer, default=0, nullable=False)
+    avg_sentiment_score = Column(Float, default=0.0, nullable=False)
+    avg_impact_score = Column(Float, default=0.0, nullable=False)
+    positive_count = Column(Integer, default=0, nullable=False)
+    negative_count = Column(Integer, default=0, nullable=False)
+    neutral_count = Column(Integer, default=0, nullable=False)
+    earnings_count = Column(Integer, default=0, nullable=False)
+    policy_regulation_count = Column(Integer, default=0, nullable=False)
+    supply_contract_count = Column(Integer, default=0, nullable=False)
+    labor_legal_count = Column(Integer, default=0, nullable=False)
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
+
+    stock = relationship("Stock", back_populates="daily_news_features")

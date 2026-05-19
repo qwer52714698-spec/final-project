@@ -109,6 +109,38 @@ class StockAnalysisResponse(BaseModel):
     top_influencers: Dict[str, float] # 핵심 영향 요인 Top 3
     analysis_date: str         # "2026-05-18"
 
+class StockPredictionEvaluationItem(BaseModel):
+    prediction_date: datetime
+    base_price_date: datetime
+    next_price_date: datetime
+    predicted_label: str
+    actual_label: str
+    actual_return_pct: float
+    confidence: Optional[str] = None
+    matched: bool
+
+class StockPredictionEvaluationResponse(BaseModel):
+    symbol: str
+    evaluated_count: int
+    matched_count: int
+    accuracy_pct: float
+    items: List[StockPredictionEvaluationItem]
+
+class StockBacktestItem(BaseModel):
+    analysis_date: str
+    predicted_label: str
+    actual_label: str
+    actual_return_pct: float
+    confidence: str
+    matched: bool
+
+class StockBacktestResponse(BaseModel):
+    symbol: str
+    evaluated_count: int
+    matched_count: int
+    accuracy_pct: float
+    items: List[StockBacktestItem]
+
 # ── Post ──────────────────────────────────────────────────────────────────────
 
 class PostCreate(BaseModel):

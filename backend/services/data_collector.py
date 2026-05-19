@@ -2,6 +2,9 @@ import yfinance as yf
 import pandas as pd
 from pykrx import stock as krx
 from datetime import datetime, timedelta
+from database import SessionLocal
+import models
+import crud
 
 class MarketDataCollector:
     def __init__(self):
@@ -40,7 +43,7 @@ class MarketDataCollector:
         print("✅ 공통 거시 데이터 수집 완료 (이후 종목은 재사용)")
         return self._macro_cache
 
-    def fetch_all_indicators(self, ticker: str, days: int = 365):
+    def fetch_all_indicators(self, ticker: str, days: int = 365, use_news_features: bool = False):
         end_date = datetime.now()
         start_date = end_date - timedelta(days=days)
         start_str = start_date.strftime('%Y%m%d')
@@ -67,9 +70,9 @@ class MarketDataCollector:
                 new_data['foreign_net'] = investor_df[for_col[0]]  if for_col  else 0
                 investor_df = new_data
             else:
-                investor_df = pd.DataFrame(index=base_df.index, columns=['inst_net', 'foreign_net']).fillna(0)
+                investor_df = pd.DataFrame(0.0, index=base_df.index, columns=['inst_net', 'foreign_net'])
         except:
-            investor_df = pd.DataFrame(index=base_df.index, columns=['inst_net', 'foreign_net']).fillna(0)
+            investor_df = pd.DataFrame(0.0, index=base_df.index, columns=['inst_net', 'foreign_net'])
 
         # 4. 기업 실적 수집
         stock_info = yf.Ticker(ticker)
@@ -85,8 +88,71 @@ class MarketDataCollector:
         final_df['inst_net']    = final_df['inst_net'].fillna(0)
         final_df['foreign_net'] = final_df['foreign_net'].fillna(0)
         final_df['op_income']   = latest_op_income
+        if use_news_features:
+            final_df = self._merge_news_features(final_df, pure_ticker, start_date, end_date)
 
         return final_df.ffill().fillna(0)
+
+    def _merge_news_features(self, base_df: pd.DataFrame, pure_ticker: str, start_date: datetime, end_date: datetime) -> pd.DataFrame:
+        feature_columns = [
+            'news_count',
+            'avg_sentiment_score',
+            'avg_impact_score',
+            'positive_count',
+            'negative_count',
+            'neutral_count',
+            'earnings_count',
+            'policy_regulation_count',
+            'supply_contract_count',
+            'labor_legal_count',
+        ]
+        news_feature_df = pd.DataFrame(index=base_df.index.copy())
+        for column in feature_columns:
+            news_feature_df[column] = 0.0
+
+        db = SessionLocal()
+        try:
+            stock = crud.resolve_stock_by_symbol(db, pure_ticker)
+            if not stock:
+                return base_df.join(news_feature_df, how='left')
+
+            daily_features = crud.get_stored_daily_stock_news_features(db, stock.id, start_date, end_date)
+            if not daily_features:
+                return base_df.join(news_feature_df, how='left')
+
+            rows = []
+            for item in daily_features:
+                rows.append(
+                    {
+                        'date': pd.Timestamp(item.date),
+                        'news_count': item.news_count,
+                        'avg_sentiment_score': item.avg_sentiment_score,
+                        'avg_impact_score': item.avg_impact_score,
+                        'positive_count': item.positive_count,
+                        'negative_count': item.negative_count,
+                        'neutral_count': item.neutral_count,
+                        'earnings_count': item.earnings_count,
+                        'policy_regulation_count': item.policy_regulation_count,
+                        'supply_contract_count': item.supply_contract_count,
+                        'labor_legal_count': item.labor_legal_count,
+                    }
+                )
+
+            feature_frame = pd.DataFrame(rows)
+            if feature_frame.empty:
+                return base_df.join(news_feature_df, how='left')
+
+            feature_frame = feature_frame.set_index('date')
+            base_with_date_index = base_df.copy()
+            base_with_date_index.index = pd.to_datetime(base_with_date_index.index).normalize()
+            merged = base_with_date_index.join(feature_frame, how='left')
+
+            for column in feature_columns:
+                merged[column] = merged[column].fillna(0.0)
+
+            return merged
+        finally:
+            db.close()
 
     def _get_stock_data(self, ticker, start, end):
         # ✅ 종목 주가만 따로 다운로드

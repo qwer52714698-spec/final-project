@@ -103,6 +103,33 @@ function StockChart({ stock, prices }) {
               </div>
             </div>
 
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+              <div className="text-xs text-gray-500 mb-2 text-center">최근 5영업일 수익률</div>
+              <div className="flex flex-col gap-1.5">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-gray-500">실제 수익률</span>
+                  <span className={`text-sm font-bold ${prediction.actual_return >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {prediction.actual_return >= 0 ? '+' : ''}{prediction.actual_return}%
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-gray-500">예측 수익률</span>
+                  <span className={`text-sm font-bold ${prediction.predicted_return >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {prediction.predicted_return >= 0 ? '+' : ''}{prediction.predicted_return}%
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-gray-500">승률</span>
+                  <span className={`text-sm font-bold ${prediction.win_rate >= 60 ? 'text-green-600' : 'text-gray-700'}`}>
+                    {prediction.win_rate}%
+                  </span>
+                </div>
+                <div className="text-xs text-gray-400 text-center mt-1">
+                  {prediction.period_start} ~ {prediction.period_end}
+                </div>
+              </div>
+            </div>
+
             <div className="border-t border-gray-100 pt-2">
               <div className="text-xs text-gray-400 mb-2">주요 영향 요인</div>
               <div className="flex flex-col gap-1.5">

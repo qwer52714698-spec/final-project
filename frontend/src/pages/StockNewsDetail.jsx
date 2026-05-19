@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { newsApi } from '../api/newsApi'
+import { commentsApi } from '../api/commentsApi'
+import CommentForm from '../components/CommentForm'
 
 function StockNewsDetail() {
   const { symbol } = useParams()
@@ -12,20 +14,41 @@ function StockNewsDetail() {
   const [totalCount, setTotalCount] = useState(0)
   const pageSize = 10
 
+  const [commentsMap, setCommentsMap] = useState({})
+
+  const fetchCommentsForNews = async (newsId) => {
+    try {
+      const response = await commentsApi.getComments(newsId)
+      setCommentsMap(prev => ({
+        ...prev,
+        [newsId]: response.data
+      }))
+    } catch (error) {
+      console.error(`댓글 로딩 실패 (뉴스 ID: ${newsId}):`, error)
+    }
+  }
+
   useEffect(() => {
-    const fetchNews = async () => {
+    const fetchNewsAndComments = async () => {
       setLoading(true)
       try {
         const response = await newsApi.getStockNews(symbol, currentPage, pageSize)
-        setNews(response.data.items)
+        const newsItems = response.data.items
+        setNews(newsItems)
         setTotalCount(response.data.total)
+
+        if (newsItems && newsItems.length > 0) {
+          newsItems.forEach(item => {
+            fetchCommentsForNews(item.id)
+          })
+        }
       } catch (error) {
         console.error('종목 뉴스 로딩 실패:', error)
       } finally {
         setLoading(false)
       }
     }
-    fetchNews()
+    fetchNewsAndComments()
   }, [symbol, currentPage])
 
   const totalPages = Math.ceil(totalCount / pageSize)
@@ -111,7 +134,7 @@ function StockNewsDetail() {
         <div className="text-center py-20 text-gray-500">해당 종목과 관련된 최신 뉴스 기사가 없습니다.</div>
       ) : (
         <>
-          <div className="space-y-6 mb-10">
+          <div className="space-y-12 mb-10">
             {news.map((item) => (
               <div key={item.id} className="p-6 bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition">
                 <h2 className="text-xl font-bold text-gray-900 mb-2">
@@ -120,7 +143,35 @@ function StockNewsDetail() {
                   </a>
                 </h2>
                 <p className="text-gray-600 text-sm line-clamp-3 mb-4">{item.content}</p>
-                <div className="text-xs text-gray-400">발행일: {new Date(item.published_at).toLocaleString()}</div>
+                <div className="text-xs text-gray-400 mb-6">발행일: {new Date(item.published_at).toLocaleString()}</div>
+
+                <div className="border-t border-gray-100 pt-6 bg-gray-50/50 -mx-6 -mb-6 p-6 rounded-b-xl">
+                  <div className="mb-4 space-y-3">
+                    {commentsMap[item.id] && commentsMap[item.id].length > 0 ? (
+                      commentsMap[item.id].map((comment) => (
+                        <div key={comment.id} className="text-sm bg-white p-3 rounded-lg border border-gray-200 shadow-sm">
+                          <div className="flex justify-between items-center mb-1">
+                            <span className="font-semibold text-gray-700">{comment.author?.username}</span>
+                            <span className="text-xs text-gray-400">{new Date(comment.created_at).toLocaleDateString()}</span>
+                          </div>
+                          <p className="text-gray-600">{comment.content}</p>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-4 text-xs text-gray-400">등록된 댓글이 없습니다. 첫 댓글을 남겨보세요!</div>
+                    )}
+                  </div>
+                  
+                  <CommentForm 
+                    newsId={item.id} 
+                    onCommentAdded={(updatedComments) => {
+                      setCommentsMap(prev => ({
+                        ...prev,
+                        [item.id]: updatedComments
+                      }))
+                    }} 
+                  />
+                </div>
               </div>
             ))}
           </div>

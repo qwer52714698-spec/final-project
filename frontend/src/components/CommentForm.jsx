@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { commentsApi } from '../api/commentsApi'
 
 function CommentForm({ newsId, onCommentAdded }) {
-  const { isAuthenticated, token, user } = useAuth()
+  const { isAuthenticated, user } = useAuth()
   const [content, setContent] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -17,12 +17,17 @@ function CommentForm({ newsId, onCommentAdded }) {
 
     setLoading(true)
     try {
-      await commentsApi.createComment(newsId, content, token)
+      const savedToken = localStorage.getItem('token')
+      const tokenWithBearer = savedToken && !savedToken.startsWith('Bearer ') 
+        ? `Bearer ${savedToken}` 
+        : savedToken
+
+      const response = await commentsApi.createComment(newsId, content, tokenWithBearer)
       alert('댓글이 작성되었습니다.')
       setContent('')
 
       if (onCommentAdded) {
-        onCommentAdded()
+        onCommentAdded(response.data)
       }
     } catch (error) {
       console.error('댓글 작성 실패:', error)

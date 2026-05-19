@@ -62,15 +62,11 @@ class NewsResponse(BaseModel):
 
     model_config = {"from_attributes": True}
 
-<<<<<<< HEAD
-# ── Stock ─────────────────────────────────────────────────────────────────────
-=======
 class NewsListResponse(BaseModel):
     total: int
     page: int
     size: int
     items: List[NewsResponse]
->>>>>>> ae3079b79facd70bbb615bdb03e1f781a968025a
 
 class StockResponse(BaseModel):
     id: int
@@ -95,9 +91,6 @@ class StockWithPrices(BaseModel):
     stock: StockResponse
     prices: List[StockPriceResponse]
 
-<<<<<<< HEAD
-# ── Post ──────────────────────────────────────────────────────────────────────
-=======
 class StockAnalysisResponse(BaseModel):
     status: str = "success"
     symbol: Optional[str] = None
@@ -110,7 +103,6 @@ class StockAnalysisResponse(BaseModel):
     win_rate: float
     period_start: str
     period_end: str
->>>>>>> ae3079b79facd70bbb615bdb03e1f781a968025a
 
 class PostCreate(BaseModel):
     title: str
@@ -148,18 +140,11 @@ class PostListResponse(BaseModel):
     size: int
     items: List[PostListItem]
 
-<<<<<<< HEAD
-# ── Comment ───────────────────────────────────────────────────────────────────
-
-class CommentCreate(BaseModel):
-    content: str
-=======
 class CommentCreate(BaseModel):
     content: str
     post_id: Optional[int] = None
     news_id: Optional[int] = None
     stock_symbol: Optional[str] = None 
->>>>>>> ae3079b79facd70bbb615bdb03e1f781a968025a
 
 class CommentUpdate(BaseModel):
     content: str
@@ -177,17 +162,6 @@ class CommentResponse(BaseModel):
     id: int
     post_id: Optional[int] = None
     news_id: Optional[int] = None
-<<<<<<< HEAD
-    content: str
-    created_at: datetime
-    updated_at: datetime
-    author: UserResponse
-    news: Optional[NewsSimple] = None  # ✅ 마이페이지 뉴스 정보용
-
-    model_config = {"from_attributes": True}
-
-PostResponse.model_rebuild()
-=======
     stock_symbol: Optional[str] = None 
     content: str
     created_at: datetime
@@ -197,4 +171,3 @@ PostResponse.model_rebuild()
     model_config = {"from_attributes": True}
 
 PostResponse.model_rebuild()
->>>>>>> ae3079b79facd70bbb615bdb03e1f781a968025a

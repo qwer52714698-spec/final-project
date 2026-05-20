@@ -20,12 +20,12 @@ function CommentForm({ newsId, onCommentAdded }) {
       // ✅ localStorage에서 토큰 그대로 가져오기 (Bearer 중복 방지)
       const token = localStorage.getItem('token')
 
-      const response = await commentsApi.createComment(newsId, content, token)
-      alert('댓글이 작성되었습니다.')
+      await commentsApi.createComment(newsId, content, token)
       setContent('')
 
+      // ✅ 댓글 작성 후 목록 자동 새로고침
       if (onCommentAdded) {
-        onCommentAdded(response.data)
+        onCommentAdded()
       }
     } catch (error) {
       console.error('댓글 작성 실패:', error)

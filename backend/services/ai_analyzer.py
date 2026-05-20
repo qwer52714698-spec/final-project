@@ -9,6 +9,7 @@ from datetime import datetime
 from typing import Any
 
 from openai import OpenAI
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from config import settings
@@ -29,6 +30,12 @@ LOW_RELEVANCE_SCORE_CAP = 0.1
 LOW_INFO_SUMMARY = "본문 정보가 제한적이어서 제목과 핵심 문맥 기준으로 보수적으로 해석했습니다."
 LOW_RELEVANCE_SUMMARY = "투자 영향이 낮은 기사로 판단해 중립적으로 처리했습니다."
 BATCH_LIMIT = 20
+FALLBACK_SUMMARY_PATTERNS = (
+    "본문 정보가 제한적이어서 제목과 핵심 문맥 기준으로 보수적으로 해석했습니다.",
+    "본문 정보는 제한적이지만 제목 기준으로 투자 영향도를 보수적으로 해석했습니다.",
+    "본문 정보는 제한적이지만 제목과 핵심 문맥 기준으로 투자 영향도를 보수적으로 추정했습니다.",
+    "투자 영향이 낮은 기사로 판단해 중립적으로 처리했습니다.",
+)
 
 LOW_INFO_PATTERNS = (
     "기자명",
@@ -574,17 +581,32 @@ def analyze_news_item(news: models.News, sector_name: str) -> tuple[float, str, 
     return result.sentiment_score, result.sentiment_label, result.summary
 
 
-def analyze_pending_news(limit: int = BATCH_LIMIT) -> int:
+def analyze_pending_news(
+    limit: int = BATCH_LIMIT,
+    *,
+    force: bool = False,
+    fallback_only: bool = False,
+    sector_id: int | None = None,
+) -> int:
     db: Session = SessionLocal()
     processed_count = 0
     fallback_count = 0
     start_time = time.time()
 
     try:
+        query = db.query(models.News)
+
+        if sector_id is not None:
+            query = query.filter(models.News.sector_id == sector_id)
+
+        if fallback_only:
+            fallback_filters = [models.News.ai_summary.contains(pattern) for pattern in FALLBACK_SUMMARY_PATTERNS]
+            query = query.filter(models.News.ai_summary.is_not(None)).filter(or_(*fallback_filters))
+        elif not force:
+            query = query.filter((models.News.ai_summary.is_(None)) | (models.News.ai_summary == ""))
+
         pending_news = (
-            db.query(models.News)
-            .filter((models.News.ai_summary.is_(None)) | (models.News.ai_summary == ""))
-            .order_by(models.News.published_at.desc())
+            query.order_by(models.News.published_at.desc())
             .limit(limit)
             .all()
         )

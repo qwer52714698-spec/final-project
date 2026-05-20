@@ -3,33 +3,33 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { authApi } from '../api/authApi'
 
+// 섹터 색상 매핑
 const SECTOR_COLORS = {
-  '반도체':     { bg: 'bg-blue-50',   text: 'text-blue-700' },
-  '2차전지':    { bg: 'bg-green-50',  text: 'text-green-700' },
-  '자동차':     { bg: 'bg-yellow-50', text: 'text-yellow-700' },
-  'AI/IT':      { bg: 'bg-purple-50', text: 'text-purple-700' },
-  '바이오/제약': { bg: 'bg-pink-50',  text: 'text-pink-700' },
-  '금융':       { bg: 'bg-indigo-50', text: 'text-indigo-700' },
-  '에너지/화학': { bg: 'bg-orange-50',text: 'text-orange-700' },
-  '산업재':     { bg: 'bg-gray-100',  text: 'text-gray-700' },
-  '소비재':     { bg: 'bg-red-50',    text: 'text-red-700' },
+  '반도체':    { bg: 'bg-blue-50',   text: 'text-blue-700' },
+  '2차전지':   { bg: 'bg-green-50',  text: 'text-green-700' },
+  '자동차':    { bg: 'bg-yellow-50', text: 'text-yellow-700' },
+  'AI/IT':     { bg: 'bg-purple-50', text: 'text-purple-700' },
+  '바이오/제약':{ bg: 'bg-pink-50',  text: 'text-pink-700' },
+  '금융':      { bg: 'bg-indigo-50', text: 'text-indigo-700' },
+  '에너지/화학':{ bg: 'bg-orange-50',text: 'text-orange-700' },
+  '산업재':    { bg: 'bg-gray-100',  text: 'text-gray-700' },
+  '소비재':    { bg: 'bg-red-50',    text: 'text-red-700' },
 }
 
 function MyPage() {
-  // ✅ AuthContext의 loading을 authLoading으로 구분
-  const { user, token, isAuthenticated, loading: authLoading } = useAuth()
+  const { user, token, isAuthenticated } = useAuth()
   const navigate = useNavigate()
   const [comments, setComments] = useState([])
-  const [commentsLoading, setCommentsLoading] = useState(true)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (authLoading) return  // 인증 상태 확인 중엔 아무것도 하지 않음
+    // 비로그인 시 로그인 페이지로
     if (!isAuthenticated) {
       navigate('/login')
       return
     }
     loadMyComments()
-  }, [authLoading, isAuthenticated])
+  }, [])
 
   const loadMyComments = async () => {
     try {
@@ -38,7 +38,7 @@ function MyPage() {
     } catch (error) {
       console.error('댓글 로딩 실패:', error)
     } finally {
-      setCommentsLoading(false)
+      setLoading(false)
     }
   }
 
@@ -57,10 +57,11 @@ function MyPage() {
   }
 
   const handleGoToNews = (newsId, sectorId) => {
+    // 해당 뉴스가 있는 섹터 페이지로 이동
     navigate(`/sector/${sectorId}/news`, { state: { targetNewsId: newsId } })
   }
 
-  if (authLoading || commentsLoading) {
+  if (loading) {
     return <div className="text-center py-20">로딩 중...</div>
   }
 

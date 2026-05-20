@@ -150,17 +150,6 @@ def get_news_by_stock(
         "items": [schemas.NewsResponse.model_validate(n) for n in news_items]
     }
 
-
-@router.get("/{news_id}", response_model=schemas.NewsResponse)
-def get_news_by_id(
-    news_id: int,
-    db: Session = Depends(get_db),
-):
-    news = db.query(models.News).filter(models.News.id == news_id).first()
-    if not news:
-        raise HTTPException(status_code=404, detail="뉴스를 찾을 수 없습니다.")
-    return news
-
 @router.post("/collect")
 def trigger_collect(
     background_tasks: BackgroundTasks,

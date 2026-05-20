@@ -1,6 +1,6 @@
 from pydantic import BaseModel, EmailStr
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 
 # ── Auth ──────────────────────────────────────────────────────────────────────
 
@@ -74,7 +74,7 @@ class NewsListResponse(BaseModel):
     size: int
     items: List[NewsResponse]
 
-# ✅ 마이페이지용 뉴스 간략 정보 (순환 참조 방지용)
+# ✅ 마이페이지용 뉴스 간략 정보 (순환 참조 방지용) - 한 번만 정의
 class NewsSimple(BaseModel):
     id: int
     title: str
@@ -169,15 +169,6 @@ class CommentCreate(BaseModel):
 
 class CommentUpdate(BaseModel):
     content: str
-
-# ✅ 마이페이지용 뉴스 간략 정보 (순환 참조 방지용)
-class NewsSimple(BaseModel):
-    id: int
-    title: str
-    sector_id: int
-    sector: Optional[SectorResponse] = None
-
-    model_config = {"from_attributes": True}
 
 class CommentResponse(BaseModel):
     id: int

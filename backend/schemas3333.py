@@ -60,8 +60,8 @@ class NewsResponse(BaseModel):
     content: Optional[str]
     url: Optional[str]
     published_at: Optional[datetime]
-    sentiment_score: Optional[float] = 0.0
-    sentiment_label: Optional[str] = "neutral"
+    sentiment_score: float
+    sentiment_label: str
     ai_summary: Optional[str]
     collected_at: datetime
     sector: Optional[SectorResponse]
@@ -74,7 +74,7 @@ class NewsListResponse(BaseModel):
     size: int
     items: List[NewsResponse]
 
-# ✅ 마이페이지용 뉴스 간략 정보 (순환 참조 방지용)
+# ✅ 마이페이지용 뉴스 간략 정보 (순환 참조 방지용) - 한 번만 정의
 class NewsSimple(BaseModel):
     id: int
     title: str
@@ -89,18 +89,18 @@ class StockResponse(BaseModel):
     id: int
     sector_id: int
     symbol: str
-    name: Optional[str] = None
-    exchange: Optional[str] = None
+    name: Optional[str]
+    exchange: Optional[str]
 
     model_config = {"from_attributes": True}
 
 class StockPriceResponse(BaseModel):
     date: datetime
-    open: Optional[float] = None
-    high: Optional[float] = None
-    low: Optional[float] = None
-    close: Optional[float] = None
-    volume: Optional[int] = None
+    open: Optional[float]
+    high: Optional[float]
+    low: Optional[float]
+    close: Optional[float]
+    volume: Optional[int]
 
     model_config = {"from_attributes": True}
 

@@ -83,6 +83,13 @@ function StockChart({ stock, prices }) {
     val_score:     '밸류에이션',
   }
 
+  const formatYAxis = (tickItem) => {
+    if (tickItem >= 100000) {
+      return `${Math.round(tickItem / 10000) * 1}만`;
+    }
+    return tickItem.toLocaleString();
+  };
+
   return (
     <div className="bg-white rounded-lg shadow-md p-6">
       <div className="flex items-center justify-between mb-4">
@@ -107,14 +114,17 @@ function StockChart({ stock, prices }) {
         </div>
       )}
 
-      <div className={`flex gap-4 ${prediction ? 'items-start' : ''}`}>
-        <div className="flex-1 min-w-0">
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={chartDataWithPrediction}>
+      <div className="flex flex-col lg:flex-row gap-6 items-stretch">
+        <div className="flex-1 min-w-0 flex flex-col justify-center">
+          <ResponsiveContainer width="100%" height={320}>
+            <LineChart data={chartDataWithPrediction} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="date" />
-              <YAxis domain={[dataMin => Math.floor(dataMin * 0.97), dataMax => Math.ceil(dataMax * 1.03)]} />
-              <Tooltip />
+              <YAxis 
+                domain={[dataMin => Math.floor((dataMin * 0.96) / 5000) * 5000, dataMax => Math.ceil((dataMax * 1.04) / 5000) * 5000]} 
+                tickFormatter={formatYAxis}
+              />
+              <Tooltip formatter={(value) => value ? `${value.toLocaleString()}원` : '-'} />
               <Legend />
               <Line type="monotone" dataKey="종가" stroke="#2563eb" strokeWidth={2} connectNulls={false} dot={{ r: 3 }} />
               <Line type="monotone" dataKey="고가" stroke="#10b981" strokeWidth={1} connectNulls={false} dot={false} />
@@ -127,16 +137,16 @@ function StockChart({ stock, prices }) {
         </div>
 
         {prediction && (
-          <div className="w-48 shrink-0 flex flex-col gap-3">
+          <div className="w-full lg:w-72 shrink-0 flex flex-col justify-between gap-3 border-l lg:border-l border-gray-100 lg:pl-4">
             <div className={`rounded-lg border p-3 text-center ${style.bg} ${style.border}`}>
-              <div className="text-xs text-gray-500 mb-1">내일 예측</div>
+              <div className="text-xs text-gray-500 mb-1">내일 방향 예측</div>
               <div className={`text-2xl font-bold ${style.color}`}>
                 {style.icon} {prediction.prediction}
               </div>
             </div>
 
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-              <div className="text-xs text-gray-500 mb-2 text-center">최근 5영업일 수익률</div>
+              <div className="text-xs text-gray-500 mb-2 text-center font-semibold">최근 5영업일 누적 성과</div>
               <div className="flex flex-col gap-1.5">
                 <div className="flex justify-between items-center">
                   <span className="flex items-center gap-1">
@@ -168,11 +178,11 @@ function StockChart({ stock, prices }) {
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="flex items-center gap-1">
-                    <span className="text-xs text-gray-500">승률</span>
+                    <span className="text-xs text-gray-500">방향 적중률</span>
                     <span className="relative group">
                       <span className="text-xs text-gray-400 bg-gray-200 rounded-full w-3.5 h-3.5 flex items-center justify-center cursor-help leading-none">?</span>
                       <span className="absolute left-0 bottom-full mb-1 w-44 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none whitespace-normal">
-                        5일 중 실제 수익률이 0보다 큰 날의 비율
+                        5일 중 AI의 상하방 예측이 실제 시장 결과와 일치한 비율
                       </span>
                     </span>
                   </span>
@@ -180,21 +190,22 @@ function StockChart({ stock, prices }) {
                     {prediction.win_rate}%
                   </span>
                 </div>
-                <div className="text-xs text-gray-400 text-center mt-1">
-                  {prediction.period_start} ~ {prediction.period_end}
-                </div>
               </div>
             </div>
 
             <div className="bg-slate-50 border border-slate-200 rounded-lg p-2.5">
-              <div className="text-[10px] text-slate-500 mb-2 text-center font-bold tracking-wider">일자별 예측 신뢰도 검증</div>
+              <div className="text-[10px] text-slate-500 mb-2 text-center font-bold tracking-wider">과거 AI 방향 예측 실적 검증</div>
               <div className="flex flex-col gap-1 text-[11px]">
                 {prediction.history_log && prediction.history_log.map((log, idx) => (
-                  <div key={idx} className="flex justify-between items-center bg-white px-2 py-1 rounded border border-slate-100">
-                    <span className="text-slate-400 text-[10px]">{log.date}</span>
-                    <span className="text-slate-600 font-medium">{log.predicted}</span>
-                    <span className={`font-bold text-[12px] ${log.is_correct ? 'text-emerald-500' : 'text-rose-400'}`}>
-                      {log.is_correct ? '●' : '×'}
+                  <div key={idx} className="flex justify-between items-center bg-white px-2 py-1 rounded border border-slate-100 gap-1">
+                    <span className="text-slate-400 text-[10px] shrink-0">{log.date}</span>
+                    <div className="flex items-center gap-1.5 flex-1 justify-center text-[10px] text-slate-600">
+                      <span>[예측] {log.predicted}</span>
+                      <span className="text-slate-300">|</span>
+                      <span>[실제] {log.actual}</span>
+                    </div>
+                    <span className={`font-bold text-xs shrink-0 ${log.is_correct ? 'text-emerald-500' : 'text-rose-500'}`}>
+                      {log.is_correct ? '정확' : '실패'}
                     </span>
                   </div>
                 ))}
@@ -202,7 +213,7 @@ function StockChart({ stock, prices }) {
             </div>
 
             <div className="border-t border-gray-100 pt-2">
-              <div className="text-xs text-gray-400 mb-2">주요 영향 요인</div>
+              <div className="text-xs text-gray-400 mb-2">핵심 주가 변동 요인</div>
               <div className="flex flex-col gap-1.5">
                 {Object.entries(prediction.top_influencers).map(([key, val]) => (
                   <div key={key}>
@@ -221,8 +232,8 @@ function StockChart({ stock, prices }) {
               </div>
             </div>
 
-            <div className="text-xs text-gray-400 text-center">
-              기준일: {prediction.analysis_date}
+            <div className="text-[10px] text-gray-400 text-center mt-1">
+              분석 기준일: {prediction.analysis_date}
             </div>
           </div>
         )}

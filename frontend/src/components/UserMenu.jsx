@@ -33,9 +33,12 @@ function UserMenu() {
 
   return (
     <div className="flex items-center gap-4">
-      <span className="text-gray-700">
+      <button
+        onClick={() => navigate('/mypage')}
+        className="text-gray-700 hover:text-blue-600 transition"
+      >
         👤 <span className="font-medium">{user?.username}</span>님
-      </span>
+      </button>
       <button
         onClick={handleLogout}
         className="px-4 py-2 text-gray-700 hover:text-red-600 font-medium"

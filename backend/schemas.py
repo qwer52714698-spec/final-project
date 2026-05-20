@@ -59,6 +59,7 @@ class NewsResponse(BaseModel):
     ai_summary: Optional[str]
     collected_at: datetime
     sector: Optional[SectorResponse]
+    comment_count: int = 0
 
     model_config = {"from_attributes": True}
 
@@ -67,6 +68,14 @@ class NewsListResponse(BaseModel):
     page: int
     size: int
     items: List[NewsResponse]
+
+class NewsSimple(BaseModel):
+    id: int
+    title: str
+    sector_id: int
+    sector: Optional[SectorResponse] = None
+
+    model_config = {"from_attributes": True}
 
 class StockResponse(BaseModel):
     id: int
@@ -158,6 +167,7 @@ class CommentResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     author: UserResponse 
+    news: Optional[NewsSimple] = None
 
     model_config = {"from_attributes": True}
 

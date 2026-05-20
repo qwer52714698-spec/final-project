@@ -186,11 +186,8 @@ function StockNewsDetail() {
                       
                       <CommentForm 
                         newsId={item.id} 
-                        onCommentAdded={(updatedComments) => {
-                          setCommentsMap(prev => ({
-                            ...prev,
-                            [item.id]: updatedComments
-                          }))
+                        onCommentAdded={() => {
+                          fetchCommentsForNews(item.id)
                         }} 
                       />
                     </div>

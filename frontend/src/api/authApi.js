@@ -18,9 +18,15 @@ export const authApi = {
     })
   },
 
-  // 내 정보 조회 (미사용 - 필요시 구현)
+  // 내 정보 조회
   getMe: (token) => 
     api.get('/auth/me', {
+      headers: { Authorization: `Bearer ${token}` }
+    }),
+
+  // 내가 쓴 댓글 목록 조회
+  getMyComments: (token) =>
+    api.get('/auth/me/comments', {
       headers: { Authorization: `Bearer ${token}` }
     }),
 }

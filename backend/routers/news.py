@@ -10,6 +10,35 @@ from typing import List, Optional, Dict, Any
 
 router = APIRouter(prefix="/news", tags=["뉴스"])
 
+
+def serialize_news_rows(rows):
+    items = []
+    for news, comment_count in rows:
+        payload = schemas.NewsResponse.model_validate(news).model_dump()
+        payload["comment_count"] = comment_count or 0
+        items.append(payload)
+    return items
+
+
+def fetch_news_rows_with_comment_count(query, skip: int, size: int):
+    comment_counts = (
+        query.session.query(
+            models.Comment.news_id.label("news_id"),
+            func.count(models.Comment.id).label("comment_count"),
+        )
+        .group_by(models.Comment.news_id)
+        .subquery()
+    )
+
+    return (
+        query.outerjoin(comment_counts, comment_counts.c.news_id == models.News.id)
+        .with_entities(models.News, func.coalesce(comment_counts.c.comment_count, 0))
+        .order_by(models.News.published_at.desc())
+        .offset(skip)
+        .limit(size)
+        .all()
+    )
+
 @router.get("/sectors", response_model=List[schemas.SectorResponse])
 def get_sectors(db: Session = Depends(get_db)):
     return db.query(models.Sector).all()
@@ -74,18 +103,13 @@ def get_all_news(
         query = query.filter(models.News.sector_id == sector_id)
     
     total_count = query.count()
-    news_items = (
-        query.order_by(models.News.published_at.desc())
-        .offset(skip)
-        .limit(size)
-        .all()
-    )
+    news_items = fetch_news_rows_with_comment_count(query, skip, size)
     
     return {
         "total": total_count,
         "page": page,
         "size": size,
-        "items": [schemas.NewsResponse.model_validate(n) for n in news_items]
+        "items": serialize_news_rows(news_items)
     }
 
 @router.get("/sector/{sector_id}", response_model=Dict[str, Any])
@@ -103,18 +127,13 @@ def get_news_by_sector(
     query = db.query(models.News).filter(models.News.sector_id == sector_id)
     
     total_count = query.count()
-    news_items = (
-        query.order_by(models.News.published_at.desc())
-        .offset(skip)
-        .limit(size)
-        .all()
-    )
+    news_items = fetch_news_rows_with_comment_count(query, skip, size)
     
     return {
         "total": total_count,
         "page": page,
         "size": size,
-        "items": [schemas.NewsResponse.model_validate(n) for n in news_items]
+        "items": serialize_news_rows(news_items)
     }
 
 @router.get("/stock/{symbol}", response_model=Dict[str, Any])
@@ -136,18 +155,13 @@ def get_news_by_stock(
     )
 
     total_count = query.count()
-    news_items = (
-        query.order_by(models.News.published_at.desc())
-        .offset(skip)
-        .limit(size)
-        .all()
-    )
+    news_items = fetch_news_rows_with_comment_count(query, skip, size)
 
     return {
         "total": total_count,
         "page": page,
         "size": size,
-        "items": [schemas.NewsResponse.model_validate(n) for n in news_items]
+        "items": serialize_news_rows(news_items)
     }
 
 @router.post("/collect")

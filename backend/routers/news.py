@@ -182,10 +182,29 @@ def trigger_collect(
 @router.post("/analyze")
 def trigger_analyze(
     background_tasks: BackgroundTasks,
+    limit: int = Query(20, ge=1, le=500),
+    force: bool = False,
+    fallback_only: bool = False,
+    sector_id: Optional[int] = None,
     db: Session = Depends(get_db),
 ):
-    background_tasks.add_task(analyze_pending_news)
-    return {"message": "AI 감성 분석을 시작합니다."}
+    if fallback_only and not force:
+        force = True
+
+    background_tasks.add_task(
+        analyze_pending_news,
+        limit=limit,
+        force=force,
+        fallback_only=fallback_only,
+        sector_id=sector_id,
+    )
+    return {
+        "message": "AI 감성 분석을 시작합니다.",
+        "limit": limit,
+        "force": force,
+        "fallback_only": fallback_only,
+        "sector_id": sector_id,
+    }
 
 @router.post("/{news_id}/analyze", response_model=schemas.NewsResponse)
 def analyze_single(

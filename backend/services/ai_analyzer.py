@@ -22,11 +22,11 @@ JSON_BLOCK_RE = re.compile(r"\{.*\}", re.DOTALL)
 MAX_CONTENT_LENGTH = 3000
 MAX_SUMMARY_LENGTH = 300
 RETRY_DELAYS = (1, 2)
-LOW_INFO_MIN_LENGTH = 80
+LOW_INFO_MIN_LENGTH = 40
 SHORT_ARTICLE_LENGTH = 180
 MAX_STRONG_SCORE = 0.6
 LOW_RELEVANCE_SCORE_CAP = 0.1
-LOW_INFO_SUMMARY = "본문 정보가 부족해 중립적으로 처리했습니다."
+LOW_INFO_SUMMARY = "본문 정보가 제한적이어서 제목과 핵심 문맥 기준으로 보수적으로 해석했습니다."
 LOW_RELEVANCE_SUMMARY = "투자 영향이 낮은 기사로 판단해 중립적으로 처리했습니다."
 BATCH_LIMIT = 20
 
@@ -118,6 +118,33 @@ INVESTMENT_SIGNAL_PATTERNS = (
     "금리",
 )
 
+TITLE_SIGNAL_PATTERNS = (
+    "코스피",
+    "코스닥",
+    "외인",
+    "외국인",
+    "기관",
+    "매수",
+    "매도",
+    "순매수",
+    "순매도",
+    "실적",
+    "영업익",
+    "매출",
+    "수주",
+    "계약",
+    "가이던스",
+    "규제",
+    "정책",
+    "증설",
+    "공급",
+    "승인",
+    "판결",
+    "노조",
+    "금리",
+    "인플레",
+)
+
 EVENT_TYPE_CANDIDATES = (
     "earnings",
     "rates_inflation",
@@ -153,6 +180,16 @@ def preprocess_news(title: str, content: str | None) -> str:
     normalized = NON_TEXT_RE.sub(" ", no_html)
     clean_text = MULTISPACE_RE.sub(" ", normalized).strip()
     return clean_text[:MAX_CONTENT_LENGTH]
+
+
+def has_investment_signal(text: str) -> bool:
+    lowered = text.lower()
+    return any(pattern.lower() in lowered for pattern in INVESTMENT_SIGNAL_PATTERNS)
+
+
+def has_strong_title_signal(title: str) -> bool:
+    lowered = title.lower()
+    return any(pattern.lower() in lowered for pattern in TITLE_SIGNAL_PATTERNS)
 
 
 def build_analysis_prompt(news: models.News, sector_name: str) -> str:
@@ -391,9 +428,12 @@ def build_low_info_result(news: models.News, clean_text: str) -> AnalysisResult:
     ):
         impact_score = 0.1
     if impact_score == 0.0:
-        summary = LOW_INFO_SUMMARY
+        if has_investment_signal(combined):
+            summary = "본문 정보는 제한적이지만 제목 기준으로 투자 영향도를 보수적으로 해석했습니다."
+        else:
+            summary = LOW_INFO_SUMMARY
     else:
-        summary = "본문 정보는 제한적이지만 제목 기준으로 약한 영향도를 추정했습니다."
+        summary = "본문 정보는 제한적이지만 제목과 핵심 문맥 기준으로 투자 영향도를 보수적으로 추정했습니다."
 
     return _build_result(
         news,
@@ -408,20 +448,22 @@ def build_low_info_result(news: models.News, clean_text: str) -> AnalysisResult:
 def is_low_information_article(clean_text: str) -> bool:
     text_lower = clean_text.lower()
     word_count = len(clean_text.split())
-    if len(clean_text) < 80:
+    has_signal = has_investment_signal(clean_text)
+
+    if len(clean_text) < LOW_INFO_MIN_LENGTH and not has_signal:
         return True
 
     pattern_hits = sum(pattern.lower() in text_lower for pattern in LOW_INFO_PATTERNS)
-    if pattern_hits >= 3:
+    if pattern_hits >= 4 and not has_signal:
         return True
 
-    if len(clean_text) < 140 and pattern_hits >= 2:
+    if len(clean_text) < 120 and pattern_hits >= 3 and not has_signal:
         return True
 
-    if word_count < 18 and pattern_hits >= 2:
+    if word_count < 14 and pattern_hits >= 3 and not has_signal:
         return True
 
-    if word_count < 10:
+    if word_count < 6 and not has_signal:
         return True
 
     return False
@@ -429,10 +471,13 @@ def is_low_information_article(clean_text: str) -> bool:
 
 def is_low_relevance_article(title: str, clean_text: str) -> bool:
     combined = f"{title} {clean_text}".lower()
-    has_low_relevance_signal = any(pattern.lower() in combined for pattern in LOW_RELEVANCE_PATTERNS)
-    has_investment_signal = any(pattern.lower() in combined for pattern in INVESTMENT_SIGNAL_PATTERNS)
+    if has_strong_title_signal(title):
+        return False
 
-    if has_low_relevance_signal and not has_investment_signal:
+    has_low_relevance_signal = any(pattern.lower() in combined for pattern in LOW_RELEVANCE_PATTERNS)
+    has_investment_signal_flag = has_investment_signal(combined)
+
+    if has_low_relevance_signal and not has_investment_signal_flag:
         return True
 
     government_like_patterns = (
@@ -445,7 +490,7 @@ def is_low_relevance_article(title: str, clean_text: str) -> bool:
         "큰잔치",
         "교통망 확충 계획",
     )
-    if any(pattern in combined for pattern in government_like_patterns) and not has_investment_signal:
+    if any(pattern in combined for pattern in government_like_patterns) and not has_investment_signal_flag:
         return True
 
     culture_like_patterns = (
@@ -456,7 +501,7 @@ def is_low_relevance_article(title: str, clean_text: str) -> bool:
         "예술",
         "문화",
     )
-    if any(pattern in combined for pattern in culture_like_patterns) and not has_investment_signal:
+    if any(pattern in combined for pattern in culture_like_patterns) and not has_investment_signal_flag:
         return True
 
     return False
@@ -525,7 +570,9 @@ def analyze_news_result(news: models.News, sector_name: str) -> AnalysisResult:
     clean_text = preprocess_news(news.title or "", news.content or "")
     if not clean_text:
         return build_low_info_result(news, clean_text)
-    if is_low_information_article(clean_text):
+    if is_low_information_article(clean_text) and not (
+        has_investment_signal(news.title or "") or has_strong_title_signal(news.title or "")
+    ):
         return build_low_info_result(news, clean_text)
 
     low_relevance = is_low_relevance_article(news.title or "", clean_text)
@@ -571,7 +618,13 @@ def analyze_pending_news(limit: int = BATCH_LIMIT) -> int:
             sector_name = sector.name if sector else "일반"
             clean_text = preprocess_news(news.title or "", news.content or "")
 
-            if not clean_text or is_low_information_article(clean_text):
+            if not clean_text or (
+                is_low_information_article(clean_text)
+                and not (
+                    has_investment_signal(news.title or "")
+                    or has_strong_title_signal(news.title or "")
+                )
+            ):
                 analysis = build_low_info_result(news, clean_text)
                 news.sentiment_score = analysis.sentiment_score
                 news.sentiment_label = analysis.sentiment_label

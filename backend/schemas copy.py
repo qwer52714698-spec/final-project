@@ -2,8 +2,6 @@ from pydantic import BaseModel, EmailStr
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 
-# ── Auth ──────────────────────────────────────────────────────────────────────
-
 class UserCreate(BaseModel):
     username: str
     email: EmailStr
@@ -29,8 +27,6 @@ class Token(BaseModel):
 class TokenData(BaseModel):
     username: Optional[str] = None
 
-# ── Sector ────────────────────────────────────────────────────────────────────
-
 class SectorResponse(BaseModel):
     id: int
     name: str
@@ -50,8 +46,6 @@ class SectorStats(BaseModel):
     positive_count: int
     negative_count: int
     neutral_count: int
-
-# ── News ──────────────────────────────────────────────────────────────────────
 
 class NewsResponse(BaseModel):
     id: int
@@ -73,17 +67,6 @@ class NewsListResponse(BaseModel):
     page: int
     size: int
     items: List[NewsResponse]
-
-# ✅ 마이페이지용 뉴스 간략 정보 (순환 참조 방지용)
-class NewsSimple(BaseModel):
-    id: int
-    title: str
-    sector_id: int
-    sector: Optional[SectorResponse] = None
-
-    model_config = {"from_attributes": True}
-
-# ── Stock ─────────────────────────────────────────────────────────────────────
 
 class StockResponse(BaseModel):
     id: int
@@ -121,8 +104,6 @@ class StockAnalysisResponse(BaseModel):
     period_start: str
     period_end: str
 
-# ── Post ──────────────────────────────────────────────────────────────────────
-
 class PostCreate(BaseModel):
     title: str
     content: str
@@ -159,13 +140,11 @@ class PostListResponse(BaseModel):
     size: int
     items: List[PostListItem]
 
-# ── Comment ───────────────────────────────────────────────────────────────────
-
 class CommentCreate(BaseModel):
     content: str
     post_id: Optional[int] = None
     news_id: Optional[int] = None
-    stock_symbol: Optional[str] = None
+    stock_symbol: Optional[str] = None 
 
 class CommentUpdate(BaseModel):
     content: str
@@ -174,12 +153,11 @@ class CommentResponse(BaseModel):
     id: int
     post_id: Optional[int] = None
     news_id: Optional[int] = None
-    stock_symbol: Optional[str] = None
+    stock_symbol: Optional[str] = None 
     content: str
     created_at: datetime
     updated_at: datetime
-    author: UserResponse
-    news: Optional[NewsSimple] = None  # ✅ 마이페이지 뉴스 정보용
+    author: UserResponse 
 
     model_config = {"from_attributes": True}
 

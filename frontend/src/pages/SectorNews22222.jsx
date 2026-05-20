@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { newsApi } from '../api/newsApi'
 import NewsCard from '../components/NewsCard'
 import CommentList from '../components/CommentList'
@@ -10,6 +10,7 @@ const PAGE_SIZE = 10
 function SectorNews() {
   const { sectorId } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()  // ✅ 마이페이지에서 전달된 state 받기
   const [news, setNews] = useState([])
   const [sector, setSector] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -33,8 +34,20 @@ function SectorNews() {
     setLoading(true)
     try {
       const response = await newsApi.getNewsBySector(sectorId, page, PAGE_SIZE)
-      setNews(response.data.items) // ✅ 응답 구조 { total, page, size, items } 반영
+      const items = response.data.items
+      setNews(items) // ✅ 응답 구조 { total, page, size, items } 반영
       setTotalCount(response.data.total)
+
+      // ✅ 마이페이지에서 넘어온 경우 해당 뉴스 자동으로 열기
+      const targetNewsId = location.state?.targetNewsId
+      if (targetNewsId) {
+        const target = items.find(n => n.id === targetNewsId)
+        if (target) {
+          setSelectedNews(target)
+          // state 초기화 (뒤로가기 후 재진입 시 중복 실행 방지)
+          navigate(location.pathname, { replace: true, state: {} })
+        }
+      }
     } catch (error) {
       console.error('뉴스 로딩 실패:', error)
     } finally {

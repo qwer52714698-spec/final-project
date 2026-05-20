@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 from database import get_db
 from config import settings
 from jose import jwt, JWTError
@@ -76,27 +76,3 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
         "token_type": "bearer",
         "user": user
     }
-
-
-# ✅ 내 정보 조회
-@router.get("/me", response_model=schemas.UserResponse)
-def get_me(current_user: models.User = Depends(get_current_user)):
-    return current_user
-
-
-# ✅ 내가 쓴 댓글 목록 조회 (뉴스 + 섹터 정보 포함)
-@router.get("/me/comments", response_model=list[schemas.CommentResponse])
-def get_my_comments(
-    current_user: models.User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    comments = (
-        db.query(models.Comment)
-        .options(
-            joinedload(models.Comment.news).joinedload(models.News.sector)
-        )
-        .filter(models.Comment.user_id == current_user.id)
-        .order_by(models.Comment.created_at.desc())
-        .all()
-    )
-    return comments

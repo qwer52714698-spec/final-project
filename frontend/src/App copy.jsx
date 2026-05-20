@@ -7,7 +7,6 @@ import AllNews from './pages/AllNews'
 import Login from './pages/Login'
 import Signup from './pages/Signup'
 import StockNewsDetail from './pages/StockNewsDetail'
-import MyPage from './pages/MyPage' // ✅ 마이페이지 추가
 
 function App() {
   return (
@@ -23,7 +22,6 @@ function App() {
             <Route path="/stock/:symbol/news" element={<StockNewsDetail />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
-            <Route path="/mypage" element={<MyPage />} /> {/* ✅ 마이페이지 라우터 */}
           </Routes>
         </main>
       </div>

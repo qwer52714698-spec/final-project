@@ -65,16 +65,12 @@ function Dashboard() {
     }
   }
 
-  // temperature = (avg_score + 1) / 2 * 100
-  // avg_score 실질 범위: -0.6 ~ +0.6 → temperature: 20 ~ 80
-  // positive 경계: score 0.15 → temp 57.5
-  // negative 경계: score -0.15 → temp 42.5
   const getTempInfo = (temp) => {
     if (temp >= 58) return { label: '과열', textColor: 'text-red-600',  badgeBg: 'bg-red-50 text-red-800' }
     if (temp >= 53) return { label: '상승', textColor: 'text-amber-600', badgeBg: 'bg-amber-50 text-amber-800' }
     if (temp >= 47) return { label: '중립', textColor: 'text-gray-500',  badgeBg: 'bg-gray-100 text-gray-600' }
     if (temp >= 42) return { label: '하락', textColor: 'text-blue-600',  badgeBg: 'bg-blue-50 text-blue-800' }
-    return             { label: '급락', textColor: 'text-blue-800',  badgeBg: 'bg-blue-100 text-blue-900' }
+    return                 { label: '급락', textColor: 'text-blue-800',  badgeBg: 'bg-blue-100 text-blue-900' }
   }
 
   if (loading) {
@@ -95,7 +91,6 @@ function Dashboard() {
               key={sector.sector_id}
               className="bg-white rounded-xl border border-gray-100 p-4 flex flex-col items-center gap-2"
             >
-              {/* 상단: 왼쪽 아이콘+섹터명 / 오른쪽 온도+배지 */}
               <div className="w-full flex items-start justify-between">
                 <div className="flex items-center gap-2">
                   <span className="text-2xl">{sector.icon}</span>
@@ -107,7 +102,6 @@ function Dashboard() {
                 </div>
               </div>
 
-              {/* 게이지 미터 */}
               <GaugeMeter
                 positive={sector.positive_count}
                 neutral={sector.neutral_count}
@@ -115,7 +109,6 @@ function Dashboard() {
                 temperature={temp}
               />
 
-              {/* 호재 / 중립 / 악재 수치 */}
               <div className="w-full flex justify-between pt-3 border-t border-gray-100">
                 <div className="flex items-center gap-1.5 text-sm">
                   <span className="w-2 h-2 rounded-full bg-green-600 inline-block"></span>
@@ -131,7 +124,6 @@ function Dashboard() {
                 </div>
               </div>
 
-              {/* 버튼 */}
               <div className="w-full flex gap-2">
                 <button
                   onClick={() => navigate(`/sector/${sector.sector_id}/news`)}

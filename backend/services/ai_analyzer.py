@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
-from openai import OpenAI  # Gemini 대신 OpenAI 사용
+from openai import OpenAI
 from sqlalchemy.orm import Session
 
 from config import settings
@@ -22,11 +22,11 @@ JSON_BLOCK_RE = re.compile(r"\{.*\}", re.DOTALL)
 MAX_CONTENT_LENGTH = 3000
 MAX_SUMMARY_LENGTH = 300
 RETRY_DELAYS = (1, 2)
-LOW_INFO_MIN_LENGTH = 80
+LOW_INFO_MIN_LENGTH = 40
 SHORT_ARTICLE_LENGTH = 180
 MAX_STRONG_SCORE = 0.6
 LOW_RELEVANCE_SCORE_CAP = 0.1
-LOW_INFO_SUMMARY = "본문 정보가 부족해 중립적으로 처리했습니다."
+LOW_INFO_SUMMARY = "본문 정보가 제한적이어서 제목과 핵심 문맥 기준으로 보수적으로 해석했습니다."
 LOW_RELEVANCE_SUMMARY = "투자 영향이 낮은 기사로 판단해 중립적으로 처리했습니다."
 BATCH_LIMIT = 20
 
@@ -118,6 +118,33 @@ INVESTMENT_SIGNAL_PATTERNS = (
     "금리",
 )
 
+TITLE_SIGNAL_PATTERNS = (
+    "코스피",
+    "코스닥",
+    "외인",
+    "외국인",
+    "기관",
+    "매수",
+    "매도",
+    "순매수",
+    "순매도",
+    "실적",
+    "영업익",
+    "매출",
+    "수주",
+    "계약",
+    "가이던스",
+    "규제",
+    "정책",
+    "증설",
+    "공급",
+    "승인",
+    "판결",
+    "노조",
+    "금리",
+    "인플레",
+)
+BATCH_LIMIT = 20
 EVENT_TYPE_CANDIDATES = (
     "earnings",
     "rates_inflation",
@@ -155,6 +182,16 @@ def preprocess_news(title: str, content: str | None) -> str:
     return clean_text[:MAX_CONTENT_LENGTH]
 
 
+def has_investment_signal(text: str) -> bool:
+    lowered = text.lower()
+    return any(pattern.lower() in lowered for pattern in INVESTMENT_SIGNAL_PATTERNS)
+
+
+def has_strong_title_signal(title: str) -> bool:
+    lowered = title.lower()
+    return any(pattern.lower() in lowered for pattern in TITLE_SIGNAL_PATTERNS)
+
+
 def build_analysis_prompt(news: models.News, sector_name: str) -> str:
     published_at_text = str(news.published_at) if news.published_at else ""
     content_text = preprocess_news(news.title or "", news.content or "")
@@ -180,7 +217,7 @@ def build_analysis_prompt(news: models.News, sector_name: str) -> str:
 8. 설명문 없이 JSON 객체만 출력한다.
 9. impact_score는 감정 방향과 별개로, 해당 뉴스가 실제 시장/섹터/종목에 줄 수 있는 영향의 크기를 평가한다.
 10. event_type은 다음 중 가장 가까운 하나만 고른다:
-   earnings, rates_inflation, macro, policy_regulation, supply_contract, mna_investment, innovation_product, labor_legal, geopolitical, other
+    earnings, rates_inflation, macro, policy_regulation, supply_contract, mna_investment, innovation_product, labor_legal, geopolitical, other
 
 JSON 스키마:
 {{
@@ -199,18 +236,16 @@ JSON 스키마:
 
 
 def call_gpt(prompt: str, model: str = "gpt-4o-mini") -> dict[str, Any]:
-    """Gemini 호출 함수를 GPT 호출 함수로 변경 (기존 구조 유지)"""
     if not settings.OPENAI_API_KEY:
         raise ValueError("OPENAI_API_KEY is not set.")
 
     client = OpenAI(api_key=settings.OPENAI_API_KEY)
-
     last_error: Exception | None = None
+    
     for delay in (0, *RETRY_DELAYS):
         if delay:
             time.sleep(delay)
         try:
-            # GPT 호출 방식으로 변경
             response = client.chat.completions.create(
                 model=model,
                 messages=[
@@ -220,13 +255,10 @@ def call_gpt(prompt: str, model: str = "gpt-4o-mini") -> dict[str, Any]:
                 temperature=0.2,
                 response_format={"type": "json_object"}
             )
-            # OpenAI 응답 구조에서 텍스트 추출
             raw_text = response.choices[0].message.content
             if not raw_text:
                 raise ValueError("GPT response text is empty.")
-            
             return parse_json_response(raw_text)
-            
         except Exception as exc:
             last_error = exc
             logger.warning("GPT API request failed: %s", exc)
@@ -275,39 +307,25 @@ def normalize_event_type(value: Any, title: str, clean_text: str) -> str:
     if event_type in EVENT_TYPE_CANDIDATES:
         return event_type
     combined = f"{title} {clean_text}".lower()
-    political_admin_tokens = (
-        "예비후보",
-        "시장 예비후보",
-        "군수",
-        "도지사",
-        "교통망 확충 계획",
-        "정책 공약",
-        "기자회견",
-        "공청회",
-        "시민단체",
-    )
-    if any(token in combined for token in political_admin_tokens):
-        return "other"
     if any(token in combined for token in ("영업익", "매출", "실적", "흑자", "적자", "가이던스")):
         return "earnings"
     if any(token in combined for token in ("금리", "물가", "인플레이션", "cpi", "환율")):
         return "rates_inflation"
-    if any(token in combined for token in ("노조", "파업", "업무방해", "부당노동행위", "법적 대응", "임금 미지급")):
+    if any(token in combined for token in ("노조", "파업", "업무방해", "부당노동행위", "임금 미지급")):
         return "labor_legal"
-    if any(token in combined for token in ("ai", "신제품", "출시", "플랫폼", "기술", "혁신", "자율주행", "반도체", "스마트카")):
+    if any(token in combined for token in ("ai", "신제품", "출시", "플랫폼", "기술", "혁신", "자율주행")):
         return "innovation_product"
-    if any(token in combined for token in ("수주", "공급", "공급망", "계약", "공급 계약", "유통 계약", "사업 확대")):
+    if any(token in combined for token in ("수주", "공급", "공급망", "계약")):
         return "supply_contract"
-    if any(token in combined for token in ("인수", "합병", "투자", "지분", "유치")):
+    if any(token in combined for token in ("인수", "합병", "투자", "지분")):
         return "mna_investment"
-    if any(token in combined for token in ("규제", "정책", "정부", "식약처", "대법원", "판결", "행정", "입법")):
+    if any(token in combined for token in ("규제", "정책", "정부", "식약처", "판결")):
         return "policy_regulation"
-    if any(token in combined for token in ("전쟁", "리스크", "지정학", "중동", "수출 규제")):
+    if any(token in combined for token in ("전쟁", "리스크", "지정학", "중동")):
         return "geopolitical"
-    if any(token in combined for token in ("경기", "불황", "호황", "소비자물가", "성장세", "물가", "인플레")):
+    if any(token in combined for token in ("경기", "불황", "호황", "성장세")):
         return "macro"
     return "other"
-
 
 def normalize_impact_score(value: Any, score: float, clean_text: str, event_type: str) -> float:
     impact = clamp(value, 0.0, 1.0, abs(score))
@@ -391,9 +409,12 @@ def build_low_info_result(news: models.News, clean_text: str) -> AnalysisResult:
     ):
         impact_score = 0.1
     if impact_score == 0.0:
-        summary = LOW_INFO_SUMMARY
+        if has_investment_signal(combined):
+            summary = "본문 정보는 제한적이지만 제목 기준으로 투자 영향도를 보수적으로 해석했습니다."
+        else:
+            summary = LOW_INFO_SUMMARY
     else:
-        summary = "본문 정보는 제한적이지만 제목 기준으로 약한 영향도를 추정했습니다."
+        summary = "본문 정보는 제한적이지만 제목과 핵심 문맥 기준으로 투자 영향도를 보수적으로 추정했습니다."
 
     return _build_result(
         news,
@@ -408,20 +429,22 @@ def build_low_info_result(news: models.News, clean_text: str) -> AnalysisResult:
 def is_low_information_article(clean_text: str) -> bool:
     text_lower = clean_text.lower()
     word_count = len(clean_text.split())
-    if len(clean_text) < 80:
+    has_signal = has_investment_signal(clean_text)
+
+    if len(clean_text) < LOW_INFO_MIN_LENGTH and not has_signal:
         return True
 
     pattern_hits = sum(pattern.lower() in text_lower for pattern in LOW_INFO_PATTERNS)
-    if pattern_hits >= 3:
+    if pattern_hits >= 4 and not has_signal:
         return True
 
-    if len(clean_text) < 140 and pattern_hits >= 2:
+    if len(clean_text) < 120 and pattern_hits >= 3 and not has_signal:
         return True
 
-    if word_count < 18 and pattern_hits >= 2:
+    if word_count < 14 and pattern_hits >= 3 and not has_signal:
         return True
 
-    if word_count < 10:
+    if word_count < 6 and not has_signal:
         return True
 
     return False
@@ -429,10 +452,13 @@ def is_low_information_article(clean_text: str) -> bool:
 
 def is_low_relevance_article(title: str, clean_text: str) -> bool:
     combined = f"{title} {clean_text}".lower()
-    has_low_relevance_signal = any(pattern.lower() in combined for pattern in LOW_RELEVANCE_PATTERNS)
-    has_investment_signal = any(pattern.lower() in combined for pattern in INVESTMENT_SIGNAL_PATTERNS)
+    if has_strong_title_signal(title):
+        return False
 
-    if has_low_relevance_signal and not has_investment_signal:
+    has_low_relevance_signal = any(pattern.lower() in combined for pattern in LOW_RELEVANCE_PATTERNS)
+    has_investment_signal_flag = has_investment_signal(combined)
+
+    if has_low_relevance_signal and not has_investment_signal_flag:
         return True
 
     government_like_patterns = (
@@ -445,7 +471,7 @@ def is_low_relevance_article(title: str, clean_text: str) -> bool:
         "큰잔치",
         "교통망 확충 계획",
     )
-    if any(pattern in combined for pattern in government_like_patterns) and not has_investment_signal:
+    if any(pattern in combined for pattern in government_like_patterns) and not has_investment_signal_flag:
         return True
 
     culture_like_patterns = (
@@ -456,7 +482,7 @@ def is_low_relevance_article(title: str, clean_text: str) -> bool:
         "예술",
         "문화",
     )
-    if any(pattern in combined for pattern in culture_like_patterns) and not has_investment_signal:
+    if any(pattern in combined for pattern in culture_like_patterns) and not has_investment_signal_flag:
         return True
 
     return False
@@ -473,8 +499,6 @@ def adjust_score(score: float, clean_text: str, low_relevance: bool) -> float:
 
     adjusted = max(min(adjusted, MAX_STRONG_SCORE), -MAX_STRONG_SCORE)
     return round(adjusted, 3)
-
-
 def heuristic_fallback_analysis(news: models.News, sector_name: str) -> tuple[float, str, str]:
     clean_text = preprocess_news(news.title or "", news.content or "")
     positive_tokens = ("상승", "호재", "확대", "성장", "개선", "수주", "실적")
@@ -525,13 +549,14 @@ def analyze_news_result(news: models.News, sector_name: str) -> AnalysisResult:
     clean_text = preprocess_news(news.title or "", news.content or "")
     if not clean_text:
         return build_low_info_result(news, clean_text)
-    if is_low_information_article(clean_text):
+    if is_low_information_article(clean_text) and not (
+        has_investment_signal(news.title or "") or has_strong_title_signal(news.title or "")
+    ):
         return build_low_info_result(news, clean_text)
 
     low_relevance = is_low_relevance_article(news.title or "", clean_text)
     if low_relevance:
         return _build_result(news, 0.0, "neutral", LOW_RELEVANCE_SUMMARY, event_type="other", impact_score=0.05)
-
     prompt = build_analysis_prompt(news, sector_name)
     result = call_gpt(prompt)
 
@@ -552,7 +577,6 @@ def analyze_news_item(news: models.News, sector_name: str) -> tuple[float, str, 
 def analyze_pending_news(limit: int = BATCH_LIMIT) -> int:
     db: Session = SessionLocal()
     processed_count = 0
-    low_info_count = 0
     fallback_count = 0
     start_time = time.time()
 
@@ -564,14 +588,20 @@ def analyze_pending_news(limit: int = BATCH_LIMIT) -> int:
             .limit(limit)
             .all()
         )
-        logger.info("[AI분석] 대상 뉴스 %s건 (limit=%s)", len(pending_news), limit)
+        logger.info("[AI Analysis] Target news count: %s (limit=%s)", len(pending_news), limit)
 
         for news in pending_news:
             sector = db.query(models.Sector).filter(models.Sector.id == news.sector_id).first()
             sector_name = sector.name if sector else "일반"
             clean_text = preprocess_news(news.title or "", news.content or "")
 
-            if not clean_text or is_low_information_article(clean_text):
+            if not clean_text or (
+                is_low_information_article(clean_text)
+                and not (
+                    has_investment_signal(news.title or "")
+                    or has_strong_title_signal(news.title or "")
+                )
+            ):
                 analysis = build_low_info_result(news, clean_text)
                 news.sentiment_score = analysis.sentiment_score
                 news.sentiment_label = analysis.sentiment_label
@@ -579,21 +609,19 @@ def analyze_pending_news(limit: int = BATCH_LIMIT) -> int:
                 try:
                     db.commit()
                     processed_count += 1
-                    low_info_count += 1
-                    logger.info("[AI분석] 저품질 기사 중립 처리 news_id=%s", news.id)
+                    logger.info("[AI Analysis] Low-info article handled conservatively. news_id=%s", news.id)
                 except Exception as exc:
                     db.rollback()
-                    logger.exception("[AI분석] 저품질 기사 저장 실패. news_id=%s error=%s", news.id, exc)
+                    logger.exception("[AI Analysis] Failed to save low-info article. news_id=%s error=%s", news.id, exc)
                 continue
-
             try:
                 analysis = analyze_news_result(news, sector_name)
             except Exception as exc:
-                logger.warning("[AI분석] GPT 분석 실패. 휴리스틱 fallback 사용. news_id=%s error=%s", news.id, exc)
+                logger.warning("[AI Analysis] GPT analysis failed. Using heuristic fallback. news_id=%s", news.id)
                 try:
                     score, label, summary = heuristic_fallback_analysis(news, sector_name)
                     event_type = normalize_event_type(None, news.title or "", clean_text)
-                    impact_score = normalize_impact_score(None, score, clean_text, event_type)
+                    impact_score = round(abs(score), 3)
                     analysis = _build_result(
                         news,
                         score,
@@ -603,9 +631,8 @@ def analyze_pending_news(limit: int = BATCH_LIMIT) -> int:
                         impact_score=impact_score,
                     )
                     fallback_count += 1
-                except Exception as fallback_exc:
+                except Exception:
                     db.rollback()
-                    logger.exception("[AI분석] fallback 분석도 실패했습니다. news_id=%s error=%s", news.id, fallback_exc)
                     continue
 
             try:
@@ -614,15 +641,13 @@ def analyze_pending_news(limit: int = BATCH_LIMIT) -> int:
                 news.ai_summary = analysis.summary
                 db.commit()
                 processed_count += 1
-            except Exception as exc:
+            except Exception:
                 db.rollback()
-                logger.exception("[AI분석] DB 저장 실패. news_id=%s error=%s", news.id, exc)
 
         elapsed = round(time.time() - start_time, 2)
         logger.info(
-            "[AI분석] 완료: 처리=%s건, 저품질중립=%s건, fallback=%s건, 소요=%s초",
+            "[AI Analysis] Completed: processed=%s, fallback=%s, elapsed=%s s",
             processed_count,
-            low_info_count,
             fallback_count,
             elapsed,
         )

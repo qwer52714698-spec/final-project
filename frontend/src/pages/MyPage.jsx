@@ -5,6 +5,7 @@ import { authApi } from '../api/authApi'
 
 // 섹터 색상 매핑
 const SECTOR_COLORS = {
+<<<<<<< HEAD
   '반도체':     { bg: 'bg-blue-50',   text: 'text-blue-700' },
   '2차전지':    { bg: 'bg-green-50',  text: 'text-green-700' },
   '자동차':     { bg: 'bg-yellow-50', text: 'text-yellow-700' },
@@ -14,6 +15,17 @@ const SECTOR_COLORS = {
   '에너지/화학': { bg: 'bg-orange-50',text: 'text-orange-700' },
   '산업재':     { bg: 'bg-gray-100',  text: 'text-gray-700' },
   '소비재':     { bg: 'bg-red-50',    text: 'text-red-700' },
+=======
+  '반도체':    { bg: 'bg-blue-50',   text: 'text-blue-700' },
+  '2차전지':   { bg: 'bg-green-50',  text: 'text-green-700' },
+  '자동차':    { bg: 'bg-yellow-50', text: 'text-yellow-700' },
+  'AI/IT':     { bg: 'bg-purple-50', text: 'text-purple-700' },
+  '바이오/제약':{ bg: 'bg-pink-50',  text: 'text-pink-700' },
+  '금융':      { bg: 'bg-indigo-50', text: 'text-indigo-700' },
+  '에너지/화학':{ bg: 'bg-orange-50',text: 'text-orange-700' },
+  '산업재':    { bg: 'bg-gray-100',  text: 'text-gray-700' },
+  '소비재':    { bg: 'bg-red-50',    text: 'text-red-700' },
+>>>>>>> 09e07c75b616ce92c8995d06caff9b3d778b0fcc
 }
 
 function MyPage() {
@@ -57,6 +69,10 @@ function MyPage() {
   }
 
   const handleGoToNews = (newsId, sectorId) => {
+<<<<<<< HEAD
+=======
+    // 해당 뉴스가 있는 섹터 페이지로 이동
+>>>>>>> 09e07c75b616ce92c8995d06caff9b3d778b0fcc
     navigate(`/sector/${sectorId}/news`, { state: { targetNewsId: newsId } })
   }
 

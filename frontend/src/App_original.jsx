@@ -6,15 +6,6 @@ import SectorStocks from './pages/SectorStocks'
 import AllNews from './pages/AllNews'
 import Login from './pages/Login'
 import Signup from './pages/Signup'
-<<<<<<< HEAD
-import MyPage from './pages/MyPage' // ✅ 마이페이지 추가
-=======
-import StockNewsDetail from './pages/StockNewsDetail'
-<<<<<<< HEAD
-import MyPage from './pages/MyPage' // ✅ 마이페이지 추가
-=======
->>>>>>> ae3079b79facd70bbb615bdb03e1f781a968025a
->>>>>>> 09e07c75b616ce92c8995d06caff9b3d778b0fcc
 
 function App() {
   return (
@@ -27,14 +18,8 @@ function App() {
             <Route path="/news" element={<AllNews />} />
             <Route path="/sector/:sectorId/news" element={<SectorNews />} />
             <Route path="/sector/:sectorId/stocks" element={<SectorStocks />} />
-            <Route path="/stock/:symbol/news" element={<StockNewsDetail />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
-<<<<<<< HEAD
-            <Route path="/mypage" element={<MyPage />} /> {/* ✅ 마이페이지 라우터 */}
-=======
-            <Route path="/mypage" element={<MyPage />} /> {/* ✅ 마이페이지 라우터 추가 */}
->>>>>>> 09e07c75b616ce92c8995d06caff9b3d778b0fcc
           </Routes>
         </main>
       </div>

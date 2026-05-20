@@ -68,21 +68,6 @@ class NewsResponse(BaseModel):
 
     model_config = {"from_attributes": True}
 
-class NewsListResponse(BaseModel):
-    total: int
-    page: int
-    size: int
-    items: List[NewsResponse]
-
-# ✅ 마이페이지용 뉴스 간략 정보 (순환 참조 방지용)
-class NewsSimple(BaseModel):
-    id: int
-    title: str
-    sector_id: int
-    sector: Optional[SectorResponse] = None
-
-    model_config = {"from_attributes": True}
-
 # ── Stock ─────────────────────────────────────────────────────────────────────
 
 class StockResponse(BaseModel):
@@ -107,19 +92,6 @@ class StockPriceResponse(BaseModel):
 class StockWithPrices(BaseModel):
     stock: StockResponse
     prices: List[StockPriceResponse]
-
-class StockAnalysisResponse(BaseModel):
-    status: str = "success"
-    symbol: Optional[str] = None
-    prediction: str
-    confidence: Optional[str] = None
-    top_influencers: Dict[str, float]
-    analysis_date: str
-    actual_return: float
-    predicted_return: float
-    win_rate: float
-    period_start: str
-    period_end: str
 
 # ── Post ──────────────────────────────────────────────────────────────────────
 
@@ -163,9 +135,6 @@ class PostListResponse(BaseModel):
 
 class CommentCreate(BaseModel):
     content: str
-    post_id: Optional[int] = None
-    news_id: Optional[int] = None
-    stock_symbol: Optional[str] = None
 
 class CommentUpdate(BaseModel):
     content: str
@@ -183,7 +152,6 @@ class CommentResponse(BaseModel):
     id: int
     post_id: Optional[int] = None
     news_id: Optional[int] = None
-    stock_symbol: Optional[str] = None
     content: str
     created_at: datetime
     updated_at: datetime

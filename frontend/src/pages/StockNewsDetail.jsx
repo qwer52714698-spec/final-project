@@ -15,6 +15,7 @@ function StockNewsDetail() {
   const pageSize = 10
 
   const [commentsMap, setCommentsMap] = useState({})
+  const [openCommentsMap, setOpenCommentsMap] = useState({})
 
   const fetchCommentsForNews = async (newsId) => {
     try {
@@ -58,6 +59,13 @@ function StockNewsDetail() {
       setCurrentPage(pageNumber)
       window.scrollTo(0, 0)
     }
+  }
+
+  const toggleComments = (newsId) => {
+    setOpenCommentsMap(prev => ({
+      ...prev,
+      [newsId]: !prev[newsId]
+    }))
   }
 
   const renderPageNumbers = () => {
@@ -135,45 +143,61 @@ function StockNewsDetail() {
       ) : (
         <>
           <div className="space-y-12 mb-10">
-            {news.map((item) => (
-              <div key={item.id} className="p-6 bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition">
-                <h2 className="text-xl font-bold text-gray-900 mb-2">
-                  <a href={item.url} target="_blank" rel="noopener noreferrer" className="hover:text-blue-600">
-                    {item.title}
-                  </a>
-                </h2>
-                <p className="text-gray-600 text-sm line-clamp-3 mb-4">{item.content}</p>
-                <div className="text-xs text-gray-400 mb-6">발행일: {new Date(item.published_at).toLocaleString()}</div>
+            {news.map((item) => {
+              const isCommentsOpen = !!openCommentsMap[item.id]
+              const commentCount = commentsMap[item.id]?.length || 0
 
-                <div className="border-t border-gray-100 pt-6 bg-gray-50/50 -mx-6 -mb-6 p-6 rounded-b-xl">
-                  <div className="mb-4 space-y-3">
-                    {commentsMap[item.id] && commentsMap[item.id].length > 0 ? (
-                      commentsMap[item.id].map((comment) => (
-                        <div key={comment.id} className="text-sm bg-white p-3 rounded-lg border border-gray-200 shadow-sm">
-                          <div className="flex justify-between items-center mb-1">
-                            <span className="font-semibold text-gray-700">{comment.author?.username}</span>
-                            <span className="text-xs text-gray-400">{new Date(comment.created_at).toLocaleDateString()}</span>
-                          </div>
-                          <p className="text-gray-600">{comment.content}</p>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-center py-4 text-xs text-gray-400">등록된 댓글이 없습니다. 첫 댓글을 남겨보세요!</div>
-                    )}
+              return (
+                <div key={item.id} className="p-6 bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition">
+                  <h2 className="text-xl font-bold text-gray-900 mb-2">
+                    <a href={item.url} target="_blank" rel="noopener noreferrer" className="hover:text-blue-600">
+                      {item.title}
+                    </a>
+                  </h2>
+                  <p className="text-gray-600 text-sm line-clamp-3 mb-4">{item.content}</p>
+                  <div className="text-xs text-gray-400 mb-4">발행일: {new Date(item.published_at).toLocaleString()}</div>
+
+                  <div className="flex justify-start mb-2">
+                    <button
+                      onClick={() => toggleComments(item.id)}
+                      className="flex items-center gap-1.5 px-4 py-1.5 border border-gray-200 bg-white rounded-full text-xs font-medium text-gray-600 hover:bg-gray-50 transition shadow-sm"
+                    >
+                      💬 댓글 {isCommentsOpen ? '접기' : `보기 (${commentCount})`}
+                    </button>
                   </div>
-                  
-                  <CommentForm 
-                    newsId={item.id} 
-                    onCommentAdded={(updatedComments) => {
-                      setCommentsMap(prev => ({
-                        ...prev,
-                        [item.id]: updatedComments
-                      }))
-                    }} 
-                  />
+
+                  {isCommentsOpen && (
+                    <div className="border-t border-gray-100 pt-6 bg-gray-50/50 -mx-6 -mb-6 p-6 rounded-b-xl mt-4">
+                      <div className="mb-4 space-y-3">
+                        {commentsMap[item.id] && commentsMap[item.id].length > 0 ? (
+                          commentsMap[item.id].map((comment) => (
+                            <div key={comment.id} className="text-sm bg-white p-3 rounded-lg border border-gray-200 shadow-sm">
+                              <div className="flex justify-between items-center mb-1">
+                                <span className="font-semibold text-gray-700">{comment.author?.username}</span>
+                                <span className="text-xs text-gray-400">{new Date(comment.created_at).toLocaleDateString()}</span>
+                              </div>
+                              <p className="text-gray-600">{comment.content}</p>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="text-center py-4 text-xs text-gray-400">등록된 댓글이 없습니다. 첫 댓글을 남겨보세요!</div>
+                        )}
+                      </div>
+                      
+                      <CommentForm 
+                        newsId={item.id} 
+                        onCommentAdded={(updatedComments) => {
+                          setCommentsMap(prev => ({
+                            ...prev,
+                            [item.id]: updatedComments
+                          }))
+                        }} 
+                      />
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
 
           {totalPages > 1 && (

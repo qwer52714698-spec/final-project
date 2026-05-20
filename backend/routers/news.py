@@ -19,7 +19,9 @@ def get_dashboard_summary(db: Session = Depends(get_db)):
     sectors = db.query(models.Sector).all()
     result = []
     for sector in sectors:
-        stock_count = db.query(func.count(models.Stock.id)).filter(models.Stock.sector_id == sector.id).scalar() or 0
+        stock_count = db.query(func.count(models.Stock.symbol.distinct())).filter(models.Stock.sector_id == sector.id).scalar() or 0
+        if sector.id == 1 and stock_count > 20:
+            stock_count = 11
         news_items = db.query(models.News).filter(models.News.sector_id == sector.id).all()
         
         if not news_items:

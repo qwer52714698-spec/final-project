@@ -160,7 +160,7 @@ def get_sector_stocks_with_prices(sector_id: int, days: int = 90, db: Session = 
     if not sector:
         raise HTTPException(status_code=404, detail="섹터를 찾을 수 없습니다.")
 
-    stocks = db.query(models.Stock).filter(models.Stock.sector_id == sector_id).all()
+    stocks = db.query(models.Stock).filter(models.Stock.sector_id == sector_id).distinct().all()
     result = []
     cutoff = (datetime.now() - timedelta(days=days)).date()
 

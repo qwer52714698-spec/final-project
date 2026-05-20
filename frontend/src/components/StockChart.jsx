@@ -9,12 +9,41 @@ function StockChart({ stock, prices }) {
   const [analyzing, setAnalyzing] = useState(false)
   const [error, setError] = useState(null)
 
-  const chartData = prices.map(p => ({
+  const chartData = prices?.map(p => ({
     date: new Date(p.date).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' }),
     종가: p.close,
     고가: p.high,
     저가: p.low,
-  }))
+    예측종가: null
+  })) || []
+
+  const chartDataWithPrediction = (() => {
+    if (!prediction || chartData.length === 0) return chartData;
+    
+    const lastActualData = chartData[chartData.length - 1];
+    const updatedChartData = chartData.map(d => ({ ...d }));
+    
+    updatedChartData[updatedChartData.length - 1].예측종가 = lastActualData.종가;
+    
+    let targetPrice = prediction.predicted_next_close;
+    if (prediction.prediction === '상승' && targetPrice <= lastActualData.종가) {
+      targetPrice = lastActualData.종가 * 1.015;
+    } else if (prediction.prediction === '하락' && targetPrice >= lastActualData.종가) {
+      targetPrice = lastActualData.종가 * 0.985;
+    } else if (prediction.prediction === '횡보') {
+      targetPrice = lastActualData.종가;
+    }
+
+    updatedChartData.push({
+      date: '내일(예측)',
+      종가: null,
+      고가: null,
+      저가: null,
+      예측종가: Math.round(targetPrice),
+    });
+    
+    return updatedChartData;
+  })();
 
   const handleAnalyze = async () => {
     setAnalyzing(true)
@@ -81,15 +110,18 @@ function StockChart({ stock, prices }) {
       <div className={`flex gap-4 ${prediction ? 'items-start' : ''}`}>
         <div className="flex-1 min-w-0">
           <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={chartData}>
+            <LineChart data={chartDataWithPrediction}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="date" />
-              <YAxis />
+              <YAxis domain={[dataMin => Math.floor(dataMin * 0.97), dataMax => Math.ceil(dataMax * 1.03)]} />
               <Tooltip />
               <Legend />
-              <Line type="monotone" dataKey="종가" stroke="#2563eb" strokeWidth={2} />
-              <Line type="monotone" dataKey="고가" stroke="#10b981" strokeWidth={1} />
-              <Line type="monotone" dataKey="저가" stroke="#ef4444" strokeWidth={1} />
+              <Line type="monotone" dataKey="종가" stroke="#2563eb" strokeWidth={2} connectNulls={false} dot={{ r: 3 }} />
+              <Line type="monotone" dataKey="고가" stroke="#10b981" strokeWidth={1} connectNulls={false} dot={false} />
+              <Line type="monotone" dataKey="저가" stroke="#ef4444" strokeWidth={1} connectNulls={false} dot={false} />
+              {prediction && (
+                <Line type="monotone" dataKey="예측종가" stroke="#f59e0b" strokeWidth={2} strokeDasharray="5 5" dot={{ r: 5, fill: '#f59e0b' }} connectNulls={true} />
+              )}
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -107,19 +139,43 @@ function StockChart({ stock, prices }) {
               <div className="text-xs text-gray-500 mb-2 text-center">최근 5영업일 수익률</div>
               <div className="flex flex-col gap-1.5">
                 <div className="flex justify-between items-center">
-                  <span className="text-xs text-gray-500">실제 수익률</span>
+                  <span className="flex items-center gap-1">
+                    <span className="text-xs text-gray-500">실제 수익률</span>
+                    <span className="relative group">
+                      <span className="text-xs text-gray-400 bg-gray-200 rounded-full w-3.5 h-3.5 flex items-center justify-center cursor-help leading-none">?</span>
+                      <span className="absolute left-0 bottom-full mb-1 w-44 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none whitespace-normal">
+                        5일치 일별 실제 수익률의 합계
+                      </span>
+                    </span>
+                  </span>
                   <span className={`text-sm font-bold ${prediction.actual_return >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                     {prediction.actual_return >= 0 ? '+' : ''}{prediction.actual_return}%
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-xs text-gray-500">예측 수익률</span>
+                  <span className="flex items-center gap-1">
+                    <span className="text-xs text-gray-500">예측 수익률</span>
+                    <span className="relative group">
+                      <span className="text-xs text-gray-400 bg-gray-200 rounded-full w-3.5 h-3.5 flex items-center justify-center cursor-help leading-none">?</span>
+                      <span className="absolute left-0 bottom-full mb-1 w-48 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none whitespace-normal">
+                        XGBoost가 예측한 다음날 종가 기준 5일치 일별 예측 수익률의 합계
+                      </span>
+                    </span>
+                  </span>
                   <span className={`text-sm font-bold ${prediction.predicted_return >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                     {prediction.predicted_return >= 0 ? '+' : ''}{prediction.predicted_return}%
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-xs text-gray-500">승률</span>
+                  <span className="flex items-center gap-1">
+                    <span className="text-xs text-gray-500">승률</span>
+                    <span className="relative group">
+                      <span className="text-xs text-gray-400 bg-gray-200 rounded-full w-3.5 h-3.5 flex items-center justify-center cursor-help leading-none">?</span>
+                      <span className="absolute left-0 bottom-full mb-1 w-44 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none whitespace-normal">
+                        5일 중 실제 수익률이 0보다 큰 날의 비율
+                      </span>
+                    </span>
+                  </span>
                   <span className={`text-sm font-bold ${prediction.win_rate >= 60 ? 'text-green-600' : 'text-gray-700'}`}>
                     {prediction.win_rate}%
                   </span>
@@ -130,7 +186,6 @@ function StockChart({ stock, prices }) {
               </div>
             </div>
 
-            {/* 🌟 조장님 전용 추가 장치: 일자별 주가 예측 매칭 결과 현황판 */}
             <div className="bg-slate-50 border border-slate-200 rounded-lg p-2.5">
               <div className="text-[10px] text-slate-500 mb-2 text-center font-bold tracking-wider">일자별 예측 신뢰도 검증</div>
               <div className="flex flex-col gap-1 text-[11px]">

@@ -65,6 +65,7 @@ class NewsResponse(BaseModel):
     ai_summary: Optional[str]
     collected_at: datetime
     sector: Optional[SectorResponse]
+    comment_count: int = 0
 
     model_config = {"from_attributes": True}
 
@@ -74,7 +75,6 @@ class NewsListResponse(BaseModel):
     size: int
     items: List[NewsResponse]
 
-# ✅ 마이페이지용 뉴스 간략 정보 (순환 참조 방지용) - 한 번만 정의
 class NewsSimple(BaseModel):
     id: int
     title: str
@@ -82,8 +82,6 @@ class NewsSimple(BaseModel):
     sector: Optional[SectorResponse] = None
 
     model_config = {"from_attributes": True}
-
-# ── Stock ─────────────────────────────────────────────────────────────────────
 
 class StockResponse(BaseModel):
     id: int
@@ -178,8 +176,8 @@ class CommentResponse(BaseModel):
     content: str
     created_at: datetime
     updated_at: datetime
-    author: UserResponse
-    news: Optional[NewsSimple] = None  # ✅ 마이페이지 뉴스 정보용
+    author: UserResponse 
+    news: Optional[NewsSimple] = None
 
     model_config = {"from_attributes": True}
 

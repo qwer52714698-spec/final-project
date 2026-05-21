@@ -4,26 +4,25 @@ import { useAuth } from '../contexts/AuthContext'
 import { authApi } from '../api/authApi'
 
 const SECTOR_COLORS = {
-  '반도체':     { bg: 'bg-blue-50',   text: 'text-blue-700' },
-  '2차전지':    { bg: 'bg-green-50',  text: 'text-green-700' },
-  '자동차':     { bg: 'bg-yellow-50', text: 'text-yellow-700' },
-  'AI/IT':      { bg: 'bg-purple-50', text: 'text-purple-700' },
-  '바이오/제약': { bg: 'bg-pink-50',  text: 'text-pink-700' },
-  '금융':       { bg: 'bg-indigo-50', text: 'text-indigo-700' },
-  '에너지/화학': { bg: 'bg-orange-50',text: 'text-orange-700' },
-  '산업재':     { bg: 'bg-gray-100',  text: 'text-gray-700' },
-  '소비재':     { bg: 'bg-red-50',    text: 'text-red-700' },
+  '반도체': { bg: 'bg-blue-50', text: 'text-blue-700' },
+  '2차전지': { bg: 'bg-green-50', text: 'text-green-700' },
+  '자동차': { bg: 'bg-yellow-50', text: 'text-yellow-700' },
+  'AI/IT': { bg: 'bg-purple-50', text: 'text-purple-700' },
+  '바이오/제약': { bg: 'bg-pink-50', text: 'text-pink-700' },
+  '금융': { bg: 'bg-indigo-50', text: 'text-indigo-700' },
+  '에너지/화학': { bg: 'bg-orange-50', text: 'text-orange-700' },
+  '산업재': { bg: 'bg-gray-100', text: 'text-gray-700' },
+  '소비재': { bg: 'bg-red-50', text: 'text-red-700' },
 }
 
 function MyPage() {
-  // ✅ AuthContext의 loading을 authLoading으로 구분
   const { user, token, isAuthenticated, loading: authLoading } = useAuth()
   const navigate = useNavigate()
   const [comments, setComments] = useState([])
   const [commentsLoading, setCommentsLoading] = useState(true)
 
   useEffect(() => {
-    if (authLoading) return  // 인증 상태 확인 중엔 아무것도 하지 않음
+    if (authLoading) return
     if (!isAuthenticated) {
       navigate('/login')
       return
@@ -48,7 +47,7 @@ function MyPage() {
       month: 'long',
       day: 'numeric',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
     })
   }
 
@@ -66,8 +65,6 @@ function MyPage() {
 
   return (
     <div className="max-w-2xl mx-auto">
-
-      {/* 프로필 카드 */}
       <div className="bg-white rounded-lg shadow-md p-6 mb-8 flex items-center gap-4">
         <div className="w-14 h-14 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 text-xl font-bold">
           {user?.username?.charAt(0).toUpperCase()}
@@ -78,7 +75,6 @@ function MyPage() {
         </div>
       </div>
 
-      {/* 내가 쓴 댓글 목록 */}
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-bold text-gray-900">내가 쓴 댓글</h2>
         <span className="text-sm text-gray-500">총 {comments.length}개</span>
@@ -90,13 +86,12 @@ function MyPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {comments.map(comment => {
+          {comments.map((comment) => {
             const sectorName = comment.news?.sector?.name
             const sectorColor = getSectorColor(sectorName)
 
             return (
               <div key={comment.id} className="bg-white rounded-lg shadow-md p-5">
-                {/* 뉴스 제목 + 섹터 배지 */}
                 <div className="flex items-start gap-2 mb-3">
                   <span className="text-blue-600 text-sm mt-0.5">📰</span>
                   <div className="flex-1">
@@ -105,18 +100,16 @@ function MyPage() {
                     </span>
                   </div>
                   {sectorName && (
-                    <span className={`shrink-0 text-xs font-medium px-2 py-0.5 rounded-full ${sectorColor.bg} ${sectorColor.text}`}>
+                    <span
+                      className={`shrink-0 text-xs font-medium px-2 py-0.5 rounded-full ${sectorColor.bg} ${sectorColor.text}`}
+                    >
                       {sectorName}
                     </span>
                   )}
                 </div>
 
-                {/* 댓글 내용 */}
-                <p className="text-gray-800 text-sm mb-3 whitespace-pre-wrap">
-                  {comment.content}
-                </p>
+                <p className="text-gray-800 text-sm mb-3 whitespace-pre-wrap">{comment.content}</p>
 
-                {/* 날짜 + 뉴스 보러가기 */}
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-gray-400">{formatDate(comment.created_at)}</span>
                   {comment.news_id && comment.news?.sector_id && (

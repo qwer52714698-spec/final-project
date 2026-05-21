@@ -24,7 +24,7 @@ export const authApi = {
       headers: { Authorization: `Bearer ${token}` }
     }),
 
-  // ✅ 내가 쓴 댓글 목록 조회
+  // 내가 쓴 댓글 목록 조회
   getMyComments: (token) =>
     api.get('/auth/me/comments', {
       headers: { Authorization: `Bearer ${token}` }

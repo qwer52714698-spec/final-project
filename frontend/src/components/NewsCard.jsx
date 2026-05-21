@@ -45,7 +45,10 @@ function NewsCard({ news }) {
       )}
 
       <div className="flex justify-between items-center text-sm text-gray-500">
-        <span>{formatDate(news.published_at)}</span>
+        <div className="flex items-center gap-4">
+          <span>{formatDate(news.published_at)}</span>
+          <span className="text-gray-400">💬 댓글 {news.comment_count ?? 0}</span>
+        </div>
         {news.url && (
           <a 
             href={news.url} 

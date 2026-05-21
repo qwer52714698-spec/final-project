@@ -23,7 +23,7 @@ function App() {
             <Route path="/stock/:symbol/news" element={<StockNewsDetail />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
-            <Route path="/mypage" element={<MyPage />} /> {/* ✅ 마이페이지 라우터 추가 */}
+            <Route path="/mypage" element={<MyPage />} />
           </Routes>
         </main>
       </div>

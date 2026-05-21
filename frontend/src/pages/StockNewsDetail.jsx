@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { newsApi } from '../api/newsApi'
 import { commentsApi } from '../api/commentsApi'
 import CommentForm from '../components/CommentForm'
+import axios from 'axios'
 
 function StockNewsDetail() {
   const { symbol } = useParams()
@@ -16,6 +17,21 @@ function StockNewsDetail() {
 
   const [commentsMap, setCommentsMap] = useState({})
   const [openCommentsMap, setOpenCommentsMap] = useState({})
+  const [currentUser, setCurrentUser] = useState(null)
+
+  useEffect(() => {
+    const token = localStorage.getItem('token')
+    if (token) {
+      try {
+        const base64Url = token.split('.')[1]
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
+        const payload = JSON.parse(window.atob(base64))
+        setCurrentUser(payload)
+      } catch (error) {
+        console.error('유저 정보 디코딩 실패:', error)
+      }
+    }
+  }, [])
 
   const fetchCommentsForNews = async (newsId) => {
     try {
@@ -51,6 +67,22 @@ function StockNewsDetail() {
     }
     fetchNewsAndComments()
   }, [symbol, currentPage])
+
+  const handleDeleteComment = async (commentId, newsId) => {
+    if (!window.confirm('댓글을 정말 삭제하시겠습니까?')) return
+
+    try {
+      const token = localStorage.getItem('token')
+      const headers = token ? { Authorization: `Bearer ${token}` } : {}
+      
+      await axios.delete(`http://localhost:8000/comments/${commentId}`, { headers })
+      alert('댓글이 안전하게 삭제되었습니다.')
+      fetchCommentsForNews(newsId)
+    } catch (error) {
+      console.error('댓글 삭제 실패:', error)
+      alert(error.response?.data?.detail || '댓글 삭제에 실패했습니다.')
+    }
+  }
 
   const totalPages = Math.ceil(totalCount / pageSize)
 
@@ -170,15 +202,29 @@ function StockNewsDetail() {
                     <div className="border-t border-gray-100 pt-6 bg-gray-50/50 -mx-6 -mb-6 p-6 rounded-b-xl mt-4">
                       <div className="mb-4 space-y-3">
                         {commentsMap[item.id] && commentsMap[item.id].length > 0 ? (
-                          commentsMap[item.id].map((comment) => (
-                            <div key={comment.id} className="text-sm bg-white p-3 rounded-lg border border-gray-200 shadow-sm">
-                              <div className="flex justify-between items-center mb-1">
-                                <span className="font-semibold text-gray-700">{comment.author?.username}</span>
-                                <span className="text-xs text-gray-400">{new Date(comment.created_at).toLocaleDateString()}</span>
+                          commentsMap[item.id].map((comment) => {
+                            const isAuthor = currentUser && (currentUser.sub === comment.author?.email || currentUser.username === comment.author?.username || currentUser.id === comment.user_id)
+
+                            return (
+                              <div key={comment.id} className="text-sm bg-white p-3 rounded-lg border border-gray-200 shadow-sm">
+                                <div className="flex justify-between items-center mb-1">
+                                  <span className="font-semibold text-gray-700">{comment.author?.username}</span>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs text-gray-400">{new Date(comment.created_at).toLocaleDateString()}</span>
+                                    {isAuthor && (
+                                      <button
+                                        onClick={() => handleDeleteComment(comment.id, item.id)}
+                                        className="text-xs text-orange-500 hover:text-orange-700 font-medium transition"
+                                      >
+                                        삭제
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                                <p className="text-gray-600">{comment.content}</p>
                               </div>
-                              <p className="text-gray-600">{comment.content}</p>
-                            </div>
-                          ))
+                            )
+                          })
                         ) : (
                           <div className="text-center py-4 text-xs text-gray-400">등록된 댓글이 없습니다. 첫 댓글을 남겨보세요!</div>
                         )}

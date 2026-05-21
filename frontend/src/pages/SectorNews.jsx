@@ -14,8 +14,6 @@ function SectorNews() {
   const [sector, setSector] = useState(null)
   const [loading, setLoading] = useState(true)
   const [selectedNews, setSelectedNews] = useState(null)
-  const [analyzing, setAnalyzing] = useState(false)  // 🆕 분석 중 상태
-  // ✅ 페이지네이션 상태
   const [currentPage, setCurrentPage] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
 
@@ -33,7 +31,7 @@ function SectorNews() {
     setLoading(true)
     try {
       const response = await newsApi.getNewsBySector(sectorId, page, PAGE_SIZE)
-      setNews(response.data.items) // ✅ 응답 구조 { total, page, size, items } 반영
+      setNews(response.data.items)
       setTotalCount(response.data.total)
     } catch (error) {
       console.error('뉴스 로딩 실패:', error)
@@ -62,23 +60,6 @@ function SectorNews() {
     }
   }
 
-  // 🆕 개별 뉴스 AI 분석
-  const handleAnalyzeSingle = async () => {
-    if (!selectedNews) return
-
-    setAnalyzing(true)
-    try {
-      const response = await newsApi.analyzeSingleNews(selectedNews.id)
-      alert('AI 감성 분석이 완료되었습니다.')
-      setSelectedNews(response.data)  // 분석 결과로 업데이트
-    } catch (error) {
-      console.error('분석 실패:', error)
-      alert('AI 분석에 실패했습니다.')
-    } finally {
-      setAnalyzing(false)
-    }
-  }
-
   const handleNewsClick = (newsItem) => {
     setSelectedNews(newsItem)
   }
@@ -102,7 +83,6 @@ function SectorNews() {
     return <div className="text-center py-20">로딩 중...</div>
   }
 
-  // 뉴스 상세보기 + 댓글
   if (selectedNews) {
     return (
       <div>
@@ -116,17 +96,8 @@ function SectorNews() {
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <div className="flex justify-between items-start mb-4">
             <h1 className="text-2xl font-bold flex-1">{selectedNews.title}</h1>
-            {/* 🆕 AI 분석 버튼 */}
-            <button
-              onClick={handleAnalyzeSingle}
-              disabled={analyzing}
-              className="ml-4 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition disabled:bg-gray-400"
-            >
-              {analyzing ? '분석 중...' : '🤖 AI 분석'}
-            </button>
           </div>
 
-          {/* 감성 점수 표시 */}
           <div className="flex gap-3 mb-4">
             <span className={`px-3 py-1 rounded-full text-sm font-medium ${
               selectedNews.sentiment_label === 'positive' ? 'bg-green-100 text-green-700' :
@@ -177,7 +148,6 @@ function SectorNews() {
     )
   }
 
-  // 뉴스 목록
   return (
     <div>
       <div className="flex items-center justify-between mb-8">
@@ -218,7 +188,6 @@ function SectorNews() {
         </div>
       )}
 
-      {/* ✅ 페이지네이션 */}
       {totalPages > 1 && (
         <div className="mt-8">
           <div className="flex items-center justify-center gap-1">

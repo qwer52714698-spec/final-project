@@ -1,56 +1,92 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import { stocksApi } from '../api/stocksApi'
 
-function StockChart({ stock, prices }) {
+function StockChart({ stock, prices: initialPrices }) {
   const navigate = useNavigate()
   const [prediction, setPrediction] = useState(null)
   const [analyzing, setAnalyzing] = useState(false)
   const [error, setError] = useState(null)
+  const [currentPrices, setCurrentPrices] = useState(initialPrices || [])
 
-  const chartData = prices?.map(p => ({
-    date: new Date(p.date).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' }),
-    종가: p.close,
-    고가: p.high,
-    저가: p.low,
-    예측종가: null
-  })) || []
+  useEffect(() => {
+    if (initialPrices) {
+      setCurrentPrices(initialPrices)
+    }
+  }, [initialPrices])
+
+  const sortedPrices = [...currentPrices].sort((a, b) => new Date(a.date) - new Date(b.date))
+
+  const chartData = sortedPrices.map(p => {
+    const rawDateStr = String(p.date).split('T')[0]
+    const [year, month, day] = rawDateStr.split('-')
+    const formattedDate = `${parseInt(month)}월 ${parseInt(day)}일`
+
+    return {
+      date: formattedDate,
+      rawDate: rawDateStr,
+      종가: p.close,
+      고가: p.high,
+      저가: p.low,
+      예측종가: null
+    }
+  })
 
   const chartDataWithPrediction = (() => {
-    if (!prediction || chartData.length === 0) return chartData;
+    if (!prediction || chartData.length === 0) return chartData
     
-    const lastActualData = chartData[chartData.length - 1];
-    const updatedChartData = chartData.map(d => ({ ...d }));
+    const updatedChartData = chartData.map(d => ({ ...d }))
+    const lastActualData = updatedChartData[updatedChartData.length - 1]
     
-    updatedChartData[updatedChartData.length - 1].예측종가 = lastActualData.종가;
+    lastActualData.예측종가 = lastActualData.종가
     
-    let targetPrice = prediction.predicted_next_close;
+    let targetPrice = prediction.predicted_next_close
     if (prediction.prediction === '상승' && targetPrice <= lastActualData.종가) {
-      targetPrice = lastActualData.종가 * 1.015;
+      targetPrice = lastActualData.종가 * 1.015
     } else if (prediction.prediction === '하락' && targetPrice >= lastActualData.종가) {
-      targetPrice = lastActualData.종가 * 0.985;
+      targetPrice = lastActualData.종가 * 0.985
     } else if (prediction.prediction === '횡보') {
-      targetPrice = lastActualData.종가;
+      targetPrice = lastActualData.종가
     }
 
+    const [year, month, day] = lastActualData.rawDate.split('-')
+    const lastDateObj = new Date(parseInt(year), parseInt(month) - 1, parseInt(day))
+    
+    const nextDateObj = new Date(lastDateObj)
+    nextDateObj.setDate(lastDateObj.getDate() + 1)
+    if (nextDateObj.getDay() === 6) nextDateObj.setDate(nextDateObj.getDate() + 2)
+    else if (nextDateObj.getDay() === 0) nextDateObj.setDate(nextDateObj.getDate() + 1)
+
+    const nextDateStr = `${nextDateObj.getMonth() + 1}월 ${nextDateObj.getDate()}일(예측)`
+
     updatedChartData.push({
-      date: '내일(예측)',
+      date: nextDateStr,
       종가: null,
       고가: null,
       저가: null,
       예측종가: Math.round(targetPrice),
-    });
+    })
     
-    return updatedChartData;
-  })();
+    return updatedChartData
+  })()
 
   const handleAnalyze = async () => {
     setAnalyzing(true)
     setError(null)
     try {
       const response = await stocksApi.analyzeStock(stock.symbol)
-      setPrediction(response.data.data)
+      const resData = response.data.data
+      setPrediction(resData)
+      
+      if (resData.realtime_prices && resData.realtime_prices.length > 0) {
+        setCurrentPrices(resData.realtime_prices)
+      } else {
+        const priceRes = await stocksApi.getStockPrices(stock.symbol)
+        if (priceRes && priceRes.data) {
+          setCurrentPrices(priceRes.data)
+        }
+      }
     } catch (e) {
       setError('분석에 실패했습니다. 잠시 후 다시 시도해주세요.')
     } finally {
@@ -85,10 +121,10 @@ function StockChart({ stock, prices }) {
 
   const formatYAxis = (tickItem) => {
     if (tickItem >= 100000) {
-      return `${Math.round(tickItem / 10000) * 1}만`;
+      return `${Math.round(tickItem / 10000) * 1}만`
     }
-    return tickItem.toLocaleString();
-  };
+    return tickItem.toLocaleString()
+  }
 
   return (
     <div className="bg-white rounded-lg shadow-md p-6">

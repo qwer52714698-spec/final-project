@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr
-from datetime import datetime
+from datetime import datetime, date
 from typing import Optional, List, Dict, Any
 
 class UserCreate(BaseModel):
@@ -170,5 +170,48 @@ class CommentResponse(BaseModel):
     news: Optional[NewsSimple] = None
 
     model_config = {"from_attributes": True}
+
+class MacroResponse(BaseModel):
+    fear_greed_score: int
+    vix_score: float
+    vix_status: str
+    usd_krw_rate: float
+    usd_krw_change: float
+    kospi_index: float
+    kospi_change: float
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+class ScheduleResponse(BaseModel):
+    id: int
+    event_date: date
+    category: str
+    title: str
+    d_day: int
+
+    model_config = {"from_attributes": True}
+
+class AnomalySignalResponse(BaseModel):
+    id: int
+    title: str
+    description: str
+    level: str
+
+class SectorDetailResponse(BaseModel):
+    sector_id: int
+    sentiment_status: str
+    foreigner_net_buy: float
+    institutional_net_buy: float
+    short_selling_ratio: float
+    keywords: List[str]
+    investment_tip: str
+
+    model_config = {"from_attributes": True}
+
+class DashboardTotalResponse(BaseModel):
+    macro: MacroResponse
+    anomalies: List[AnomalySignalResponse]
+    schedules: List[ScheduleResponse]
 
 PostResponse.model_rebuild()

@@ -1,18 +1,21 @@
 import { useState, useEffect } from 'react'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { newsApi } from '../api/newsApi'
 import NewsCard from '../components/NewsCard'
 import CommentList from '../components/CommentList'
 import CommentForm from '../components/CommentForm'
+import axios from 'axios'
 
 const PAGE_SIZE = 10
 
 function AllNews() {
+  const navigate = useNavigate()
+  const location = useLocation()
   const [news, setNews] = useState([])
   const [sectors, setSectors] = useState([])
   const [selectedSector, setSelectedSector] = useState(null)
   const [loading, setLoading] = useState(true)
   const [selectedNews, setSelectedNews] = useState(null)
-  const [analyzing, setAnalyzing] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
 
@@ -28,6 +31,31 @@ function AllNews() {
   useEffect(() => {
     loadNews(currentPage)
   }, [currentPage])
+
+  // 🔥 [핵심 교정] 대시보드 랭킹 링크에서 넘어오는 특정 뉴스 고유 ID 실시간 인터셉트 감지기
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search)
+    const focusNewsId = searchParams.get('newsId')
+    
+    if (focusNewsId) {
+      if (news && news.length > 0) {
+        const found = news.find(item => item.id === parseInt(focusNewsId))
+        if (found) {
+          setSelectedNews(found)
+          return
+        }
+      }
+      
+      // 목록 풀에 아직 로드가 안 된 과거 뉴스일 경우 백엔드 보존 테이블 단일 다이렉트 쿼리 통신
+      axios.get(`http://localhost:8000/news/${focusNewsId}`)
+        .then(res => {
+          setSelectedNews(res.data)
+        })
+        .catch(err => {
+          console.error('대시보드 타겟 뉴스 상세 데이터 조회 실패:', err)
+        })
+    }
+  }, [news, location.search])
 
   const loadSectors = async () => {
     try {
@@ -51,33 +79,15 @@ function AllNews() {
     }
   }
 
-  const handleAnalyzeAll = async () => {
-    try {
-      await newsApi.analyzeNews()
-      alert('AI 감성 분석을 시작했습니다. 잠시 후 새로고침 해주세요.')
-    } catch (error) {
-      console.error('분석 실패:', error)
-      alert('분석에 실패했습니다.')
-    }
+  const handleNewsClick = (newsItem) => {
+    setSelectedNews(newsItem)
   }
 
-  const handleAnalyzeSingle = async () => {
-    if (!selectedNews) return
-    setAnalyzing(true)
-    try {
-      const response = await newsApi.analyzeSingleNews(selectedNews.id)
-      alert('AI 감성 분석이 완료되었습니다.')
-      setSelectedNews(response.data)
-    } catch (error) {
-      console.error('분석 실패:', error)
-      alert('AI 분석에 실패했습니다.')
-    } finally {
-      setAnalyzing(false)
-    }
+  const handleBackToList = () => {
+    setSelectedNews(null)
+    // 상세를 접고 나갈 때 URL 뒤에 붙어있던 쿼리스트링 찌꺼기를 깨끗하게 청소
+    navigate('/news') 
   }
-
-  const handleNewsClick = (newsItem) => setSelectedNews(newsItem)
-  const handleBackToList = () => setSelectedNews(null)
 
   const totalPages = Math.ceil(totalCount / PAGE_SIZE)
 
@@ -90,10 +100,11 @@ function AllNews() {
     return pages
   }
 
-  if (loading) {
+  if (loading && news.length === 0) {
     return <div className="text-center py-20">로딩 중...</div>
   }
 
+  // 1. 단일 뉴스 상세 보기 화면 분기 (🤖 보라색 AI 분석 버튼 완벽 도려냄 수술 완료)
   if (selectedNews) {
     return (
       <div>
@@ -104,13 +115,6 @@ function AllNews() {
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <div className="flex justify-between items-start mb-4">
             <h1 className="text-2xl font-bold flex-1">{selectedNews.title}</h1>
-            <button
-              onClick={handleAnalyzeSingle}
-              disabled={analyzing}
-              className="ml-4 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition disabled:bg-gray-400"
-            >
-              {analyzing ? '분석 중...' : '🤖 AI 분석'}
-            </button>
           </div>
 
           <div className="flex gap-3 mb-4">
@@ -139,7 +143,7 @@ function AllNews() {
           )}
 
           <div className="flex justify-between items-center text-sm text-gray-500 border-t pt-4">
-            <span>{new Date(selectedNews.published_at).toLocaleDateString('ko-KR')}</span>
+            <span>{new Date(selectedNews.published_at || selectedNews.collected_at).toLocaleDateString('ko-KR')}</span>
             {selectedNews.url && (
               <a href={selectedNews.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
                 원문 보기 →
@@ -154,13 +158,11 @@ function AllNews() {
     )
   }
 
+  // 2. 뉴스 카테고리별 전체 목록 보기 화면 분기 (상단에 존재하던 보라색 AI 일괄 분석 단추 전면 청소 완료)
   return (
     <div>
       <div className="flex items-center justify-between mb-8">
-        <h1 className="text-3xl font-bold">전체 뉴스</h1>
-        <button onClick={handleAnalyzeAll} className="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 transition">
-          AI 감성 분석
-        </button>
+        <h1 className="text-3xl font-bold">전체 뉴스 관제</h1>
       </div>
 
       <div className="mb-6 flex gap-2 flex-wrap">
@@ -197,7 +199,6 @@ function AllNews() {
         </div>
       )}
 
-      {/* ✅ 페이지네이션 */}
       {totalPages > 1 && (
         <div className="mt-8">
           <div className="flex items-center justify-center gap-1">

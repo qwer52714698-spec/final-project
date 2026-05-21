@@ -19,6 +19,19 @@ function StockNewsDetail() {
   const [openCommentsMap, setOpenCommentsMap] = useState({})
   const [currentUser, setCurrentUser] = useState(null)
 
+  // 🆕 종목 코드(symbol)를 직관적인 한글 사명으로 변환하기 위한 매핑 딕셔너리
+  const stockNameMap = {
+    "005930.KS": "삼성전자",
+    "005930": "삼성전자",
+    "000660.KS": "SK하이닉스",
+    "000660": "SK하이닉스",
+    "035420.KS": "NAVER",
+    "035420": "NAVER",
+    "035720.KS": "카카오",
+    "035720": "카카오"
+  }
+  const displayStockName = stockNameMap[symbol] || symbol
+
   useEffect(() => {
     const token = localStorage.getItem('token')
     if (token) {
@@ -168,7 +181,8 @@ function StockNewsDetail() {
         ← 이전으로 돌아가기
       </button>
       
-      <h1 className="text-3xl font-bold mb-8">🔍 {symbol} 관련 주요 뉴스</h1>
+      {/* 🛠️ [교정 반영] 종목 숫자가 아닌 '삼성전자(005930.KS)' 한글 결합형 타이틀로 개조 */}
+      <h1 className="text-3xl font-bold mb-8">🔍 {displayStockName} 관련 주요 뉴스</h1>
 
       {news.length === 0 ? (
         <div className="text-center py-20 text-gray-500">해당 종목과 관련된 최신 뉴스 기사가 없습니다.</div>
@@ -181,11 +195,24 @@ function StockNewsDetail() {
 
               return (
                 <div key={item.id} className="p-6 bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition">
-                  <h2 className="text-xl font-bold text-gray-900 mb-2">
-                    <a href={item.url} target="_blank" rel="noopener noreferrer" className="hover:text-blue-600">
-                      {item.title}
-                    </a>
-                  </h2>
+                  <div className="flex justify-between items-start gap-4 mb-2">
+                    <h2 className="text-xl font-bold text-gray-900 flex-1">
+                      <a href={item.url} target="_blank" rel="noopener noreferrer" className="hover:text-blue-600">
+                        {item.title}
+                      </a>
+                    </h2>
+                    
+                    {/* 🛠️ [교정 반영] 글자 배지 옆에 소수점 감성 점수(sentiment_score) 추가 각인 */}
+                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold shrink-0 border ${
+                      item.sentiment_label === 'positive' ? 'bg-green-50 text-green-700 border-green-200' :
+                      item.sentiment_label === 'negative' ? 'bg-red-50 text-red-700 border-red-200' :
+                      'bg-gray-50 text-gray-700 border-gray-200'
+                    }`}>
+                      {item.sentiment_label === 'positive' ? '긍정' : item.sentiment_label === 'negative' ? '부정' : '중립'}
+                      {' '}{item.sentiment_score ? item.sentiment_score.toFixed(2) : '0.00'}
+                    </span>
+                  </div>
+                  
                   <p className="text-gray-600 text-sm line-clamp-3 mb-4">{item.content}</p>
                   <div className="text-xs text-gray-400 mb-4">발행일: {new Date(item.published_at).toLocaleString()}</div>
 

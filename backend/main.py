@@ -4,7 +4,6 @@ from types import ModuleType
 SERVER_URL = os.environ.get("RENDER_EXTERNAL_URL", "http://localhost:8000")
 fake_pkg_resources = ModuleType('pkg_resources')
 
-
 def mock_resource_filename(package, resource):
     base_dir = os.path.dirname(os.path.abspath(__file__))
     venv_pykrx_dir = os.path.join(os.path.dirname(base_dir), '.venv', 'lib', 'python3.12', 'site-packages', 'pykrx')
@@ -20,7 +19,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database import engine, SessionLocal
 import models
-from routers import news, stocks, comments, auth  # posts 제외
+from routers import news, stocks, comments, auth
+from api import dashboard
 from apscheduler.schedulers.background import BackgroundScheduler
 import requests
 import threading
@@ -42,7 +42,8 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(news.router)
 app.include_router(stocks.router)
-app.include_router(comments.router)  # 종목 토크방/뉴스 공용 댓글 적용 완료
+app.include_router(comments.router)
+app.include_router(dashboard.router)
 
 def run_full_analysis():
     print("🚀 [시스템] 뉴스 AI 분석 및 전 종목 예측 프로세스를 시작합니다.")

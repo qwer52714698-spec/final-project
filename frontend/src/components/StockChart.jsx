@@ -10,6 +10,18 @@ function StockChart({ stock, prices: initialPrices }) {
   const [error, setError] = useState(null)
   const [currentPrices, setCurrentPrices] = useState(initialPrices || [])
 
+  // 자산 모의 투자 시뮬레이터 상태 관리
+  const [investment, setInvestment] = useState('')
+  const [simulationResult, setSimulationResult] = useState(null)
+
+  // AI 분석 기사 날짜 범위 가두기 UI 상태 관리
+  const [startDate, setStartDate] = useState(() => {
+    const d = new Date()
+    d.setDate(d.getDate() - 7)
+    return d.toISOString().split('T')[0]
+  })
+  const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0])
+
   useEffect(() => {
     if (initialPrices) {
       setCurrentPrices(initialPrices)
@@ -71,11 +83,36 @@ function StockChart({ stock, prices: initialPrices }) {
     return updatedChartData
   })()
 
+  // 투자 시뮬레이터 연산 로직
+  const handleCalculateSimulation = () => {
+    if (!investment || !prediction || chartData.length === 0) return
+    const lastActualData = chartData[chartData.length - 1]
+    
+    let targetPrice = prediction.predicted_next_close
+    if (prediction.prediction === '상승' && targetPrice <= lastActualData.종가) {
+      targetPrice = lastActualData.종가 * 1.015
+    } else if (prediction.prediction === '하락' && targetPrice >= lastActualData.종가) {
+      targetPrice = lastActualData.종가 * 0.985
+    } else if (prediction.prediction === '횡보') {
+      targetPrice = lastActualData.종가
+    }
+
+    const changeRate = (targetPrice - lastActualData.종가) / lastActualData.종가
+    const principal = parseFloat(investment)
+    const calculatedValue = principal * (1 + changeRate)
+    
+    setSimulationResult(Math.round(calculatedValue))
+  }
+
   const handleAnalyze = async () => {
     setAnalyzing(true)
     setError(null)
+    setSimulationResult(null)
     try {
-      const response = await stocksApi.analyzeStock(stock.symbol)
+      const response = await stocksApi.analyzeStock(stock.symbol, {
+        start_date: startDate,
+        end_date: endDate
+      })
       const resData = response.data.data
       setPrediction(resData)
       
@@ -119,6 +156,19 @@ function StockChart({ stock, prices: initialPrices }) {
     val_score:     '밸류에이션',
   }
 
+  const factorDescription = {
+    Close:         '당일 마감 주가 자산의 절대적 기준 가격 변수',
+    Volume:        '당일 주식 유통 시장에서 거래된 총 거래 수량 지표',
+    interest_rate: '거시 지표 — 한국은행 기준 금리 변동 추이 요인',
+    exchange_rate: '원/달러 환율 종가 변동성 모멘텀 가중치',
+    oil_price:     '글로벌 원자재 가격 리스크 — WTI 크루드 오일 가격 지표',
+    sp500:         '글로벌 금융 커플링 — 미국 S&P 500 시장 지수',
+    inst_5d:       '최근 5거래일간 기관 투자자의 누적 순매수 거래 평단 요인',
+    foreign_5d:    '최근 5거래일간 외국인 투자자의 자본 유입 순매수 가중치',
+    volatility:    '최근 10영업일간 일별 변동률 표준편차 기반 투자 리스크 지수',
+    val_score:     '당일 기업 영업이익 대비 시가총액 유통 대금 비율산정 평가점수',
+  }
+
   const formatYAxis = (tickItem) => {
     if (tickItem >= 100000) {
       return `${Math.round(tickItem / 10000) * 1}만`
@@ -128,20 +178,39 @@ function StockChart({ stock, prices: initialPrices }) {
 
   return (
     <div className="bg-white rounded-lg shadow-md p-6">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
         <h3 
           onClick={() => navigate(`/stock/${stock.symbol}/news`)}
           className="text-xl font-bold cursor-pointer hover:text-blue-600 hover:underline inline-block"
         >
           {stock.name} ({stock.symbol})
         </h3>
-        <button
-          onClick={handleAnalyze}
-          disabled={analyzing}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition disabled:bg-gray-400"
-        >
-          {analyzing ? '분석 중...' : '🤖 AI 예측'}
-        </button>
+        
+        <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 py-1.5 self-start sm:self-auto">
+          <div className="flex items-center gap-1.5 text-xs text-gray-600 font-semibold">
+            <span>AI 분석 기간:</span>
+            <input 
+              type="date" 
+              value={startDate} 
+              onChange={(e) => setStartDate(e.target.value)}
+              className="border border-gray-300 rounded px-1.5 py-0.5 bg-white text-gray-700 font-medium focus:outline-none shadow-sm text-[11px]"
+            />
+            <span>~</span>
+            <input 
+              type="date" 
+              value={endDate} 
+              onChange={(e) => setEndDate(e.target.value)}
+              className="border border-gray-300 rounded px-1.5 py-0.5 bg-white text-gray-700 font-medium focus:outline-none shadow-sm text-[11px]"
+            />
+          </div>
+          <button
+            onClick={handleAnalyze}
+            disabled={analyzing}
+            className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition disabled:bg-gray-400 shadow-sm"
+          >
+            {analyzing ? '분석 중...' : '🤖 AI 예측'}
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -174,10 +243,46 @@ function StockChart({ stock, prices: initialPrices }) {
 
         {prediction && (
           <div className="w-full lg:w-72 shrink-0 flex flex-col justify-between gap-3 border-l lg:border-l border-gray-100 lg:pl-4">
-            <div className={`rounded-lg border p-3 text-center ${style.bg} ${style.border}`}>
-              <div className="text-xs text-gray-500 mb-1">내일 방향 예측</div>
-              <div className={`text-2xl font-bold ${style.color}`}>
-                {style.icon} {prediction.prediction}
+            <div className="space-y-3">
+              <div className={`rounded-lg border p-3 text-center ${style.bg} ${style.border}`}>
+                <div className="text-xs text-gray-500 mb-1">내일 방향 예측</div>
+                <div className={`text-2xl font-bold ${style.color}`}>
+                  {style.icon} {prediction.prediction}
+                </div>
+              </div>
+
+              <div className={`rounded-lg border p-3 ${style.border} ${style.bg} space-y-2`}>
+                <span className="text-[11px] font-black text-gray-700 block">💰 자산 모의 투자 시뮬레이터</span>
+                <div className="flex gap-1.5">
+                  <input
+                    type="number"
+                    placeholder="오늘 투자할 금액(원) 입력"
+                    value={investment}
+                    onChange={(e) => setInvestment(e.target.value)}
+                    className="flex-1 border border-gray-300 rounded-md px-2 py-1 text-xs font-bold bg-white text-gray-800 focus:outline-none shadow-sm"
+                  />
+                  <button
+                    onClick={handleCalculateSimulation}
+                    className="px-2.5 py-1 bg-slate-800 text-white text-xs font-bold rounded-md hover:bg-slate-900 transition shadow-sm shrink-0"
+                  >
+                    계산
+                  </button>
+                </div>
+
+                {simulationResult !== null && (
+                  <div className="bg-white p-2 rounded-md border border-gray-100 text-[11px] space-y-1 mt-1 shadow-sm">
+                    <div className="flex justify-between text-gray-500 font-semibold">
+                      <span>오늘 투자금:</span>
+                      <span>{parseInt(investment).toLocaleString()} 원</span>
+                    </div>
+                    <div className="flex justify-between text-gray-900 font-black border-t pt-1 mt-1">
+                      <span>내일 자산 예상:</span>
+                      <span className={prediction.prediction === '상승' ? 'text-green-600' : 'text-red-600'}>
+                        {simulationResult.toLocaleString()} 원
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -248,23 +353,44 @@ function StockChart({ stock, prices: initialPrices }) {
               </div>
             </div>
 
-            <div className="border-t border-gray-100 pt-2">
-              <div className="text-xs text-gray-400 mb-2">핵심 주가 변동 요인</div>
+            {/* 핵심 주가 변동 요인 연동 구역 */}
+            <div className="border-t border-gray-100 pt-2 space-y-3">
+              <div className="text-xs text-gray-400">핵심 주가 변동 요인</div>
               <div className="flex flex-col gap-1.5">
                 {Object.entries(prediction.top_influencers).map(([key, val]) => (
                   <div key={key}>
-                    <div className="flex justify-between text-xs mb-0.5">
-                      <span className="text-gray-600">{factorLabel[key] || key}</span>
-                      <span className="text-gray-800 font-medium">{val.toFixed(2)}</span>
+                    <div className="flex justify-between text-xs mb-0.5 items-center">
+                      <span className="flex items-center gap-1">
+                        <span className="text-gray-600 font-medium">{factorLabel[key] || key}</span>
+                        <span className="relative group">
+                          <span className="text-[9px] text-slate-400 bg-slate-200 hover:bg-slate-300 transition rounded-full w-3 h-3 flex items-center justify-center cursor-help leading-none select-none font-bold">?</span>
+                          <span className="absolute bottom-full left-0 mb-1.5 w-52 bg-slate-900/95 backdrop-blur-sm text-white text-[10px] p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-50 pointer-events-none whitespace-normal shadow-xl border border-slate-800 leading-normal font-medium">
+                            {factorDescription[key] || 'XGBoost 연산 가중치 피처 파라미터'}
+                          </span>
+                        </span>
+                      </span>
+                      <span className="text-gray-800 font-bold">{val.toFixed(2)}</span>
                     </div>
                     <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-blue-500 rounded-full"
+                        className="h-full bg-blue-500 rounded-full transition-all duration-300"
                         style={{ width: `${(val / maxFactor) * 100}%` }}
                       />
                     </div>
                   </div>
                 ))}
+              </div>
+
+              {/* 🆕 [요청 적용] 전체 AI 예측 변동 요인 사전 가이드 가이드라인 칩 추가 */}
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-2.5 space-y-1.5 mt-2">
+                <span className="text-[10px] font-black text-slate-700 block tracking-tight">🗺️ 분석 데이터 피처 사전 가이드</span>
+                <div className="grid grid-cols-2 gap-1 text-[9px] font-bold text-gray-600">
+                  <div className="bg-white p-1 rounded border border-gray-100 truncate hover:text-slate-900" title="종가 / 거래량">📈 주가: 종가, 거래량</div>
+                  <div className="bg-white p-1 rounded border border-gray-100 truncate hover:text-slate-900" title="금리 / 환율">💵 거시: 금리, 환율</div>
+                  <div className="bg-white p-1 rounded border border-gray-100 truncate hover:text-slate-900" title="유가 / S&P500">🌍 글로벌: 유가, S&P500</div>
+                  <div className="bg-white p-1 rounded border border-gray-100 truncate hover:text-slate-900" title="기관 / 외국인 순매수">👥 수급: 기관·외인 5일 매수</div>
+                  <div className="bg-white p-1 rounded border border-gray-100 truncate hover:text-slate-900" title="변동성 / 밸류에이션">📐 지표: 변동성, 밸류에이션</div>
+                </div>
               </div>
             </div>
 

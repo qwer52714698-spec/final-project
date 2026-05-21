@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, Float, DateTime, ForeignKey, BigInteger, JSON
+from sqlalchemy import Column, Integer, String, Text, Float, DateTime, ForeignKey, BigInteger, JSON, Date
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from database import Base
@@ -26,6 +26,7 @@ class Sector(Base):
 
     news_items = relationship("News", back_populates="sector")
     stocks = relationship("Stock", back_populates="sector")
+    detail_analysis = relationship("SectorDetailAnalysis", back_populates="sector", uselist=False, cascade="all, delete-orphan")
 
 class News(Base):
     __tablename__ = "news"
@@ -115,3 +116,40 @@ class StockPrediction(Base):
     created_at = Column(DateTime, default=func.now())
 
     stock = relationship("Stock", back_populates="predictions")
+
+class MacroIndicator(Base):
+    __tablename__ = "macro_indicators"
+
+    id = Column(Integer, primary_key=True, index=True)
+    fear_greed_score = Column(Integer, default=50)
+    vix_score = Column(Float, default=20.0)
+    vix_status = Column(String(20), default="보통")
+    usd_krw_rate = Column(Float, default=1300.0)
+    usd_krw_change = Column(Float, default=0.0)
+    kospi_index = Column(Float, default=2500.0)
+    kospi_change = Column(Float, default=0.0)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+class MarketSchedule(Base):
+    __tablename__ = "market_schedules"
+
+    id = Column(Integer, primary_key=True, index=True)
+    event_date = Column(Date, nullable=False)
+    category = Column(String(20), nullable=False)
+    title = Column(String(100), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+class SectorDetailAnalysis(Base):
+    __tablename__ = "sector_detail_analysis"
+
+    id = Column(Integer, primary_key=True, index=True)
+    sector_id = Column(Integer, ForeignKey("sectors.id", ondelete="CASCADE"), unique=True)
+    sentiment_status = Column(String(20), default="중립")
+    foreigner_net_buy = Column(Float, default=0.0)
+    institutional_net_buy = Column(Float, default=0.0)
+    short_selling_ratio = Column(Float, default=0.0)
+    keywords = Column(String(255), default="")
+    investment_tip = Column(Text, default="")
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    sector = relationship("Sector", back_populates="detail_analysis")

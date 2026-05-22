@@ -21,33 +21,24 @@ function Navbar() {
   }, [])
 
   return (
-    // ✅ sticky top-0 z-50 추가 → 스크롤해도 상단 고정
-    <nav
-      className="bg-white border-b border-gray-100 relative z-50 sticky top-0"
+    <nav 
+      className="bg-white border-b border-gray-100 relative z-50"
       onMouseLeave={() => setIsOpen(false)}
     >
       <div className="container mx-auto px-6">
-        {/* ✅ h-16 → h-20 으로 세로폭 늘림 */}
-        <div className="flex items-center justify-between h-20">
-
-          {/* ✅ 텍스트 로고 → 이미지 로고로 변경 */}
-          <Link to="/">
-            <img
-              src="/logo_main.png"
-              alt="MarketMood"
-              className="h-10 object-contain"
-            />
+        <div className="flex items-center justify-between h-16">
+          <Link to="/" className="text-xl font-bold text-blue-600 tracking-tight">
+            📈 주식 트렌드 예측
           </Link>
-
+          
           <div className="flex items-center gap-8">
             <Link to="/" className="text-gray-600 hover:text-blue-600 font-medium transition text-sm">
               대시보드
             </Link>
-
-            {/* ✅ h-16 → h-20 으로 버튼 높이도 맞춤 */}
-            <button
+            
+            <button 
               onMouseEnter={() => setIsOpen(true)}
-              className={`text-gray-600 hover:text-blue-600 font-medium h-20 flex items-center gap-1 transition text-sm relative after:absolute after:bottom-0 after:left-0 after:w-full after:h-0.5 after:bg-blue-600 after:transition-transform after:duration-200 ${isOpen ? 'text-blue-600 after:scale-x-100' : 'after:scale-x-0'}`}
+              className={`text-gray-600 hover:text-blue-600 font-medium h-16 flex items-center gap-1 transition text-sm relative after:absolute after:bottom-0 after:left-0 after:w-full after:h-0.5 after:bg-blue-600 after:transition-transform after:duration-200 ${isOpen ? 'text-blue-600 after:scale-x-100' : 'after:scale-x-0'}`}
             >
               섹터별 주식현황
             </button>
@@ -60,7 +51,7 @@ function Navbar() {
         </div>
       </div>
 
-      <div
+      <div 
         className={`absolute left-0 w-full bg-white border-b border-gray-200/80 shadow-[0_20px_25px_-5px_rgba(0,0,0,0.05)] transition-all duration-300 origin-top overflow-hidden z-40 ${isOpen && sectors.length > 0 ? 'opacity-100 scale-y-100 h-auto py-10' : 'opacity-0 scale-y-0 h-0 py-0'}`}
         onMouseEnter={() => setIsOpen(true)}
       >

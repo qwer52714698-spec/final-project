@@ -9,7 +9,7 @@ const SLIDES = [
     bg: 'bg-purple-50',
     tag: 'MarketMood',
     tagColor: 'text-purple-700',
-    title: '오늘의 Mood, 내일의 Move',
+    title: '오늘의 Mood,\n내일의 Move',
     titleColor: 'text-purple-950',
     sub: 'AI가 분석한 시장 감성으로 내일을 준비하세요',
     subColor: 'text-purple-800',
@@ -32,16 +32,37 @@ const SLIDES = [
     path: '/news',
   },
   {
-    bg: 'bg-indigo-100',
+    bg: 'bg-amber-50',
     badge: 'XGBoost',
-    badgeBg: 'bg-purple-200 text-purple-900',
-    badgeMarginTop: 'mt-2',
-    title: 'Mood Moves Markets',
-    titleColor: 'text-gray-800',
+    badgeBg: 'bg-amber-200 text-amber-900',
+    title: 'Mood Moves\nMarkets',
+    titleColor: 'text-amber-950',
     sub: 'XGBoost 머신러닝이 상승 · 횡보 · 하락을 예측합니다',
-    subColor: 'text-gray-700',
+    subColor: 'text-amber-800',
     sub2: '금리 · 환율 · 유가 · S&P500 · 수급 데이터를 종합 분석',
-    sub2Color: 'text-gray-600',
+    sub2Color: 'text-amber-700',
+  },
+  {
+    bg: 'bg-teal-50',
+    badge: 'GPT-4o-mini + XGBoost',
+    badgeBg: 'bg-teal-200 text-teal-900',
+    title: 'market mood\nmakes you move',
+    titleColor: 'text-teal-950',
+    sub: '뉴스 감성부터 주가 예측까지 한 플랫폼에서',
+    subColor: 'text-teal-800',
+    sub2: '감성 분석과 주가 예측을 함께 경험하세요',
+    sub2Color: 'text-teal-700',
+  },
+  {
+    bg: 'bg-pink-50',
+    tag: 'MarketMood',
+    tagColor: 'text-pink-700',
+    title: '시장의 분위기가\n곧 내일의 차트가 된다.',
+    titleColor: 'text-pink-950',
+    sub: '오늘의 감성 데이터가 내일의 투자 인사이트가 됩니다',
+    subColor: 'text-pink-800',
+    sub2: '지금 바로 시장의 무드를 확인하세요',
+    sub2Color: 'text-pink-600',
   },
 ]
 
@@ -70,7 +91,7 @@ function BannerSlider() {
         >
           <div>
             {s.badge && (
-              <span className={`inline-block text-xs font-semibold px-3 py-1 rounded-full mb-3 ${s.badgeBg} ${s.badgeMarginTop || ''}`}>
+              <span className={`inline-block text-xs font-semibold px-3 py-1 rounded-full mb-3 ${s.badgeBg}`}>
                 {s.badge}
               </span>
             )}
@@ -84,14 +105,12 @@ function BannerSlider() {
             </div>
             <div className={`text-sm mb-1 ${s.subColor}`}>{s.sub}</div>
             <div className={`text-xs mb-5 opacity-70 ${s.sub2Color}`}>{s.sub2}</div>
-            {s.btnText && (
-              <button
-                onClick={() => navigate(s.path)}
-                className={`px-5 py-2 rounded-full text-sm font-semibold ${s.btnBg} ${s.btnText2}`}
-              >
-                {s.btnText}
-              </button>
-            )}
+            <button
+              onClick={() => navigate(s.path)}
+              className={`px-5 py-2 rounded-full text-sm font-semibold ${s.btnBg} ${s.btnText2}`}
+            >
+              {s.btnText}
+            </button>
           </div>
         </div>
       ))}
@@ -176,10 +195,10 @@ function Dashboard() {
   const [selectedSector, setSelectedSector] = useState(1)
   const [sectorDetail, setSectorDetail] = useState(null)
   const [sectorLoading, setSectorLoading] = useState(false)
-
+  
   // 일괄 체온계 토글 단일 상태 엔진 복원 보전
   const [isAllGaugeOpen, setIsAllGaugeOpen] = useState(false)
-
+  
   const navigate = useNavigate()
 
   useEffect(() => {

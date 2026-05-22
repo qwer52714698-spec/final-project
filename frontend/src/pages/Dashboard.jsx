@@ -4,14 +4,11 @@ import { newsApi } from '../api/newsApi'
 import axios from 'axios'
 
 function GaugeMeter({ positive, negative, temperature }) {
-  // 중립 노이즈를 완벽하게 제외하고, 순수하게 호재와 악재의 총합만을 분모로 확정
   const total = positive + negative
-  
-  // 만약 해당 섹터에 호재와 악재 기사가 단 한 건도 없다면 정중앙(중립 50도 각도)을 가리키도록 방어막 형성
-  const activeRatio = total === 0 ? 0.5 : positive / total
-  
-  // 호재성 비중에 맞춰 -180도부터 0도까지의 바늘 각도를 정밀 맵핑
-  const needleAngle = -180 + activeRatio * 180
+  if (total === 0) return null
+
+  const normalizedTemp = Math.max(0, Math.min(100, temperature ?? 50))
+  const needleAngle = -180 + (normalizedTemp / 100) * 180
 
   const cx = 80, cy = 80, r = 60, strokeW = 11
 
@@ -22,9 +19,10 @@ function GaugeMeter({ positive, negative, temperature }) {
     return `M ${cx + radius * Math.cos(s)} ${cy + radius * Math.sin(s)} A ${radius} ${radius} 0 ${largeArc} 1 ${cx + radius * Math.cos(e)} ${cy + radius * Math.sin(e)}`
   }
 
-  // 중립이 빠진 상태에서 전체 호재 영역과 악재 영역의 호(Arc) 길이 동적 마진 연산
-  const posEnd = -180 + activeRatio * 180
-  const negStart = -((negative / (total || 1)) * 180)
+  const posRatio = positive / total
+  const negRatio = negative / total
+  const posEnd = -180 + posRatio * 180
+  const negStart = -negRatio * 180
 
   const needleLength = r - 8
   const nx = cx + needleLength * Math.cos((needleAngle * Math.PI) / 180)
@@ -33,7 +31,7 @@ function GaugeMeter({ positive, negative, temperature }) {
   const needleColor =
     temperature >= 58 ? '#E24B4A'
     : temperature >= 53 ? '#BA7517'
-    : temperature >= 47 ? '#887800'
+    : temperature >= 47 ? '#808080'
     : temperature >= 42 ? '#378ADD'
     : '#185FA5'
 
@@ -120,6 +118,12 @@ function Dashboard() {
     return                 { label: '급락', textColor: 'text-blue-800',  badgeBg: 'bg-blue-100 text-blue-900' }
   }
 
+  const getTempDeltaText = (temp) => {
+    const delta = temp - 50
+    if (delta === 0) return '기준선'
+    return delta > 0 ? `+${delta}` : `${delta}`
+  }
+
   const getMarketStatusText = (score) => {
     if (score >= 75) return { status: '극단적 낙관 무드', desc: '호재 오피니언의 비중이 압도적이며, 긍정 여론이 지배하여 시장 전반에 강력한 매수 모멘텀이 작용 중입니다.', color: 'text-emerald-600', bg: 'bg-emerald-50/50' }
     if (score >= 55) return { status: '낙관 우위 무드', desc: '전반적으로 호재성 뉴스가 우세를 점하고 있어 시장 참여자들의 심리가 안정되고 점진적 우상향이 기대됩니다.', color: 'text-green-600', bg: 'bg-green-50/50' }
@@ -185,6 +189,9 @@ function Dashboard() {
                       </div>
                       <div className="flex flex-col items-end gap-1">
                         <span className={`text-lg font-bold ${textColor}`}>{temp}°</span>
+                        <span className={`text-[10px] font-semibold ${textColor}`}>
+                          {getTempDeltaText(temp)}
+                        </span>
                         <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${badgeBg}`}>{label}</span>
                       </div>
                     </div>

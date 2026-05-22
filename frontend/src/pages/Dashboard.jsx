@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { newsApi } from '../api/newsApi'
-import axios from 'axios'
+import api from '../api/axios'
 
 function GaugeMeter({ positive, negative, temperature }) {
   const total = positive + negative
@@ -64,7 +64,7 @@ function Dashboard() {
   useEffect(() => {
     const fetchMainDashboard = async () => {
       try {
-        const response = await axios.get('http://localhost:8000/dashboard/main')
+        const response = await api.get('/dashboard/main')
         setMacroData(response.data.macro)
         setAnomalies(response.data.anomalies)
         setSchedules(response.data.schedules)
@@ -92,7 +92,7 @@ function Dashboard() {
     const fetchSectorDetail = async () => {
       setSectorLoading(true)
       try {
-        const response = await axios.get(`http://localhost:8000/dashboard/sector/${selectedSector}/detail`)
+        const response = await api.get(`/dashboard/sector/${selectedSector}/detail`)
         setSectorDetail(response.data)
       } catch (error) {
         console.error('섹터 정밀 데이터 로딩 실패:', error)

@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from database import get_db
 from services.news_collector import collect_news_for_sector
-from services.ai_analyzer import analyze_pending_news
+from services.ai_analyzer import analyze_pending_news, build_sentiment_explanation
 import models
 import schemas
 from typing import List, Optional, Dict, Any
@@ -16,6 +16,7 @@ def serialize_news_rows(rows):
     for news, comment_count in rows:
         payload = schemas.NewsResponse.model_validate(news).model_dump()
         payload["comment_count"] = comment_count or 0
+        payload["sentiment_explanation"] = build_sentiment_explanation(news)
         items.append(payload)
     return items
 
@@ -233,4 +234,7 @@ def analyze_single(
     news.ai_summary = summary or "분석 완료"
     db.commit()
     db.refresh(news)
-    return news
+    payload = schemas.NewsResponse.model_validate(news).model_dump()
+    payload["comment_count"] = len(news.comments) if news.comments else 0
+    payload["sentiment_explanation"] = build_sentiment_explanation(news)
+    return payload

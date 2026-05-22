@@ -50,7 +50,7 @@ def analyze_stock(symbol: str, db: Session = Depends(get_db)):
             .filter(models.StockPrediction.stock_id == stock.id)
             .order_by(desc(models.StockPrediction.id))
             .offset(1)
-            .limit(30)
+            .limit(150)
             .all()
         )
 
@@ -62,7 +62,7 @@ def analyze_stock(symbol: str, db: Session = Depends(get_db)):
             db.query(models.StockPrice)
             .filter(models.StockPrice.stock_id == stock.id)
             .order_by(desc(models.StockPrice.date))
-            .limit(30)
+            .limit(150)
             .all()
         )
         prices.reverse()
@@ -77,19 +77,14 @@ def analyze_stock(symbol: str, db: Session = Depends(get_db)):
             
             if len(sorted_p_dates) >= 2:
                 for d_idx, p_date in enumerate(sorted_p_dates):
-                    if p_date == today_str:
-                        continue
-                        
                     orig_idx = sorted_p_dates.index(p_date)
                     if orig_idx + 1 < len(sorted_p_dates):
                         curr_p = p_map[p_date]
                         next_p = p_map[sorted_p_dates[orig_idx + 1]]
                         
                         next_p_date_str = next_p.date.strftime("%Y-%m-%d") if hasattr(next_p.date, 'strftime') else str(next_p.date).split(' ')[0]
-                        if next_p_date_str == today_str:
-                            continue
-                            
                         next_p_date_obj = next_p.date if hasattr(next_p.date, 'date') else datetime.strptime(next_p_date_str, "%Y-%m-%d")
+                        
                         if next_p_date_obj.weekday() >= 5:
                             continue
                             
@@ -108,7 +103,6 @@ def analyze_stock(symbol: str, db: Session = Depends(get_db)):
                             actual_label = "상승" if actual_diff > 0 else "하락" if actual_diff < 0 else "횡보"
                             
                             is_correct = (pred_match.prediction == actual_label)
-                            
                             display_date = next_p_date_obj.strftime("%m/%d")
                             
                             history_details.append({
@@ -125,8 +119,6 @@ def analyze_stock(symbol: str, db: Session = Depends(get_db)):
                 next_p = prices[i+1]
                 
                 next_p_date_str = next_p.date.strftime("%Y-%m-%d") if hasattr(next_p.date, 'strftime') else str(next_p.date).split(' ')[0]
-                if next_p_date_str == today_str:
-                    continue
                 next_p_date_obj = next_p.date if hasattr(next_p.date, 'date') else datetime.strptime(next_p_date_str, "%Y-%m-%d")
                 if next_p_date_obj.weekday() >= 5:
                     continue
@@ -155,7 +147,7 @@ def analyze_stock(symbol: str, db: Session = Depends(get_db)):
                     c_year = datetime.now().year
                     m_month, m_day = map(int, m_d.split('/'))
                     d_obj = datetime(c_year, m_month, m_day)
-                    if d_obj.weekday() < 5 and d_obj.strftime("%Y-%m-%d") != today_str:
+                    if d_obj.weekday() < 5:
                         clean_dates.append((m_d, d_obj.strftime("%Y-%m-%d")))
                 except:
                     continue
@@ -165,7 +157,7 @@ def analyze_stock(symbol: str, db: Session = Depends(get_db)):
                 clean_dates = []
                 iter_date = current_time - timedelta(days=1)
                 while len(clean_dates) < 5:
-                    if iter_date.weekday() < 5 and iter_date.strftime("%Y-%m-%d") != today_str:
+                    if iter_date.weekday() < 5:
                         clean_dates.append((iter_date.strftime("%m/%d"), iter_date.strftime("%Y-%m-%d")))
                     iter_date -= timedelta(days=1)
                 clean_dates.reverse()
@@ -208,7 +200,7 @@ def analyze_stock(symbol: str, db: Session = Depends(get_db)):
         raw_data = predictor.collector.fetch_all_indicators(ticker)
         realtime_prices = []
         if raw_data is not None:
-            df_tail = raw_data.tail(30)
+            df_tail = raw_data.tail(150)
             for idx, row in df_tail.iterrows():
                 realtime_prices.append({
                     "date": idx.strftime("%Y-%m-%d"),
@@ -231,7 +223,7 @@ def get_stocks(sector_id: int = None, db: Session = Depends(get_db)):
     return q.all()
 
 @router.get("/sector/{sector_id}", response_model=List[schemas.StockWithPrices])
-def get_sector_stocks_with_prices(sector_id: int, days: int = 90, db: Session = Depends(get_db)):
+def get_sector_stocks_with_prices(sector_id: int, days: int = 150, db: Session = Depends(get_db)):
     sector = db.query(models.Sector).filter(models.Sector.id == sector_id).first()
     if not sector:
         raise HTTPException(status_code=404, detail="섹터를 찾을 수 없습니다.")
@@ -251,7 +243,7 @@ def get_sector_stocks_with_prices(sector_id: int, days: int = 90, db: Session = 
     return result
 
 @router.get("/{symbol}/prices", response_model=List[schemas.StockPriceResponse])
-def get_stock_prices(symbol: str, days: int = 90, db: Session = Depends(get_db)):
+def get_stock_prices(symbol: str, days: int = 150, db: Session = Depends(get_db)):
     stock = db.query(models.Stock).filter(models.Stock.symbol == symbol).first()
     if not stock:
         raise HTTPException(status_code=404, detail="종목을 찾을 수 없습니다.")

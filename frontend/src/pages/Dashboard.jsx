@@ -3,12 +3,15 @@ import { useNavigate } from 'react-router-dom'
 import { newsApi } from '../api/newsApi'
 import axios from 'axios'
 
-function GaugeMeter({ positive, neutral, negative, temperature }) {
-  const total = positive + neutral + negative
-  if (total === 0) return null
-
-  const score = (positive - negative) / total
-  const needleAngle = -180 + ((score + 1) / 2) * 180
+function GaugeMeter({ positive, negative, temperature }) {
+  // 중립 노이즈를 완벽하게 제외하고, 순수하게 호재와 악재의 총합만을 분모로 확정
+  const total = positive + negative
+  
+  // 만약 해당 섹터에 호재와 악재 기사가 단 한 건도 없다면 정중앙(중립 50도 각도)을 가리키도록 방어막 형성
+  const activeRatio = total === 0 ? 0.5 : positive / total
+  
+  // 호재성 비중에 맞춰 -180도부터 0도까지의 바늘 각도를 정밀 맵핑
+  const needleAngle = -180 + activeRatio * 180
 
   const cx = 80, cy = 80, r = 60, strokeW = 11
 
@@ -19,10 +22,9 @@ function GaugeMeter({ positive, neutral, negative, temperature }) {
     return `M ${cx + radius * Math.cos(s)} ${cy + radius * Math.sin(s)} A ${radius} ${radius} 0 ${largeArc} 1 ${cx + radius * Math.cos(e)} ${cy + radius * Math.sin(e)}`
   }
 
-  const posRatio = positive / total
-  const negRatio = negative / total
-  const posEnd = -180 + posRatio * 180
-  const negStart = -negRatio * 180
+  // 중립이 빠진 상태에서 전체 호재 영역과 악재 영역의 호(Arc) 길이 동적 마진 연산
+  const posEnd = -180 + activeRatio * 180
+  const negStart = -((negative / (total || 1)) * 180)
 
   const needleLength = r - 8
   const nx = cx + needleLength * Math.cos((needleAngle * Math.PI) / 180)
@@ -31,7 +33,7 @@ function GaugeMeter({ positive, neutral, negative, temperature }) {
   const needleColor =
     temperature >= 58 ? '#E24B4A'
     : temperature >= 53 ? '#BA7517'
-    : temperature >= 47 ? '#88780'
+    : temperature >= 47 ? '#887800'
     : temperature >= 42 ? '#378ADD'
     : '#185FA5'
 
@@ -55,7 +57,10 @@ function Dashboard() {
   const [selectedSector, setSelectedSector] = useState(1)
   const [sectorDetail, setSectorDetail] = useState(null)
   const [sectorLoading, setSectorLoading] = useState(false)
-  const [openGauges, setOpenGauges] = useState({})
+  
+  // 일괄 체온계 토글 단일 상태 엔진 복원 보전
+  const [isAllGaugeOpen, setIsAllGaugeOpen] = useState(false)
+  
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -77,7 +82,7 @@ function Dashboard() {
       } catch (error) {
         console.error('대시보드 섹터 요약 로딩 실패:', error)
       } finally {
-        setLoading(false)
+        loading && setLoading(false)
       }
     }
 
@@ -100,15 +105,9 @@ function Dashboard() {
     fetchSectorDetail()
   }, [selectedSector])
 
-  const toggleGauge = (id, e) => {
-    e.stopPropagation()
-    setOpenGauges(prev => ({ ...prev, [id]: !prev[id] }))
-  }
-
   const handleNewsRedirectToDetail = (newsId, e) => {
     e.stopPropagation()
     if (newsId) {
-      // 🔗 [교정 핵심] 엉뚱한 화면 분기를 차단하고 특정 뉴스 ID 타겟팅 쿼리스트링 전달 포워딩
       navigate(`/sector/${selectedSector}/news?newsId=${newsId}`)
     }
   }
@@ -129,8 +128,14 @@ function Dashboard() {
     return { status: '극단적 위기 패닉', desc: '악재 중심의 극단적 여론이 관측 시스템을 점령했으며, 패닉 셀링 등 자본 유출 신호가 감지되는 경보 상태입니다.', color: 'text-red-600', bg: 'bg-red-50/50' }
   }
 
-  if (loading) {
-    return <div className="text-center py-20 text-gray-400 font-medium">로딩 중...</div>
+  const formatSyncTime = (rawTime) => {
+    if (!rawTime) return '-'
+    try {
+      const d = new Date(rawTime)
+      return isNaN(d.getTime()) ? String(rawTime) : d.toLocaleString()
+    } catch (e) {
+      return String(rawTime)
+    }
   }
 
   const sentimentScore = macroData?.fear_greed_score || 50
@@ -138,273 +143,317 @@ function Dashboard() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-extrabold text-gray-950 tracking-tight">📊 마켓무드 모니터링 관제 대시보드</h1>
-        <p className="text-xs text-gray-400 mt-1">
-          관제 데이터 최종 동기화 시각: {macroData ? new Date(macroData.updated_at).toLocaleString() : '-'}
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-extrabold text-gray-950 tracking-tight">마켓무드 모니터링 관제 대시보드</h1>
+          <p className="text-xs text-gray-400 mt-1">
+            관제 데이터 최종 동기화 시각: {macroData ? formatSyncTime(macroData.updated_at) : '-'}
+          </p>
+        </div>
+        <div>
+          <button
+            onClick={() => setIsAllGaugeOpen(!isAllGaugeOpen)}
+            className="w-full sm:w-auto px-5 py-2.5 text-xs font-black text-white bg-slate-900 rounded-xl hover:bg-slate-800 transition shadow-sm"
+          >
+            {isAllGaugeOpen ? '전체 게이지 접기' : '전체 체온계 보기'}
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
-        <div className="xl:col-span-2 space-y-4">
-          <h2 className="text-xl font-bold text-gray-900 border-b pb-2">🎯 섹터별 시장 체온계 현황</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {sectors.map(sector => {
-              const temp = Math.round(sector.sentiment_temperature)
-              const { label, textColor, badgeBg } = getTempInfo(temp)
-              const isSelected = selectedSector === sector.sector_id
-              const isGaugeOpen = !!openGauges[sector.sector_id]
+        {/* 왼쪽 섹션: 섹터 카드 세트 및 하단 거시 통계 지표 그리드 판넬 */}
+        <div className="xl:col-span-2 space-y-6">
+          <div className="space-y-4">
+            <h2 className="text-xl font-bold text-gray-900 border-b pb-2">섹터별 시장 체온계 현황</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {sectors.map(sector => {
+                const temp = Math.round(sector.sentiment_temperature)
+                const { label, textColor, badgeBg } = getTempInfo(temp)
+                const isSelected = selectedSector === sector.sector_id
 
-              return (
-                <div
-                  key={sector.sector_id}
-                  onClick={() => setSelectedSector(sector.sector_id)}
-                  className={`bg-white rounded-xl p-4 flex flex-col gap-3 cursor-pointer transition border shadow-sm ${
-                    isSelected ? 'border-2 border-slate-800 bg-slate-50/30' : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  <div className="w-full flex items-start justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-2xl">{sector.icon}</span>
-                      <span className="text-base font-bold text-gray-900">{sector.sector_name}</span>
+                return (
+                  <div
+                    key={sector.sector_id}
+                    onClick={() => setSelectedSector(sector.sector_id)}
+                    className={`bg-white rounded-xl p-4 flex flex-col gap-3 cursor-pointer transition border shadow-sm ${
+                      isSelected ? 'border-2 border-slate-800 bg-slate-50/30' : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="w-full flex items-start justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-base font-bold text-gray-900">{sector.sector_name}</span>
+                      </div>
+                      <div className="flex flex-col items-end gap-1">
+                        <span className={`text-lg font-bold ${textColor}`}>{temp}°</span>
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${badgeBg}`}>{label}</span>
+                      </div>
                     </div>
-                    <div className="flex flex-col items-end gap-1">
-                      <span className={`text-lg font-bold ${textColor}`}>{temp}°</span>
-                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${badgeBg}`}>{label}</span>
+
+                    <div className="w-full flex justify-between text-[11px] bg-gray-50 p-2 rounded-lg border border-gray-100">
+                      <span className="text-green-700 font-bold">호재 {sector.positive_count}</span>
+                      <span className="text-gray-500 font-bold">중립 {sector.neutral_count}</span>
+                      <span className="text-red-600 font-bold">악재 {sector.negative_count}</span>
                     </div>
-                  </div>
 
-                  <div className="w-full flex justify-between text-[11px] bg-gray-50 p-2 rounded-lg border border-gray-100">
-                    <span className="text-green-700 font-bold">호재 {sector.positive_count}</span>
-                    <span className="text-gray-500 font-bold">중립 {sector.neutral_count}</span>
-                    <span className="text-red-600 font-bold">악재 {sector.negative_count}</span>
-                  </div>
-
-                  {isGaugeOpen && (
-                    <div className="py-2 bg-gray-50/40 border border-dashed border-gray-200 rounded-xl">
-                      <GaugeMeter
-                        positive={sector.positive_count}
-                        neutral={sector.neutral_count}
-                        negative={sector.negative_count}
-                        temperature={temp}
-                      />
-                    </div>
-                  )}
-
-                  <div className="w-full flex gap-2" onClick={(e) => e.stopPropagation()}>
-                    <button
-                      onClick={(e) => toggleGauge(sector.sector_id, e)}
-                      className={`flex-1 py-1.5 text-xs font-bold border rounded-lg transition ${
-                        isGaugeOpen ? 'bg-slate-800 border-slate-800 text-white' : 'border-gray-200 text-gray-600 hover:bg-gray-50'
-                      }`}
-                    >
-                      {isGaugeOpen ? '▲ 게이지 접기' : '📊 체온계 보기'}
-                    </button>
-                    <button
-                      onClick={() => navigate(`/sector/${sector.sector_id}/news`)}
-                      className="px-3 py-1.5 text-xs font-bold border border-gray-200 rounded-lg text-gray-700 hover:bg-gray-50 transition"
-                    >
-                      📰 뉴스 {sector.news_count}
-                    </button>
-                    <button
-                      onClick={() => navigate(`/sector/${sector.sector_id}/stocks`)}
-                      className="px-3 py-1.5 text-xs font-bold border border-gray-200 rounded-lg text-gray-700 hover:bg-gray-50 transition"
-                    >
-                      📈 주식 {sector.stock_count}
-                    </button>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-
-        <div className="xl:col-span-1 bg-white p-4 rounded-2xl border border-gray-100 shadow-sm mt-0 xl:mt-9 flex flex-col gap-4">
-          {sectorLoading ? (
-            <div className="text-center py-20 text-xs text-gray-400 font-medium">데이터 스트리밍 중...</div>
-          ) : sectorDetail ? (
-            <div className="space-y-4">
-              <div className="flex justify-between items-center border-b pb-2">
-                <h3 className="text-sm font-black text-gray-800">
-                  📌 {sectors.find(s => s.sector_id === selectedSector)?.sector_name || '반도체'} 리포트
-                </h3>
-                <span className="text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100 px-2 py-0.5 rounded-full">
-                  {sectorDetail.sentiment_status}
-                </span>
-              </div>
-
-              <div className="grid grid-cols-3 gap-1.5">
-                <div className="bg-gray-50 p-2 rounded-xl text-center">
-                  <span className="text-[9px] text-gray-400 block">외인 누적</span>
-                  <span className={`text-[11px] font-black ${sectorDetail.foreigner_net_buy >= 0 ? 'text-red-500' : 'text-blue-500'}`}>
-                    {sectorDetail.foreigner_net_buy >= 0 ? '+' : ''}{Math.round(sectorDetail.foreigner_net_buy)}억
-                  </span>
-                </div>
-                <div className="bg-gray-50 p-2 rounded-xl text-center">
-                  <span className="text-[9px] text-gray-400 block">기관 누적</span>
-                  <span className={`text-[11px] font-black ${sectorDetail.institutional_net_buy >= 0 ? 'text-red-500' : 'text-blue-500'}`}>
-                    {sectorDetail.institutional_net_buy >= 0 ? '+' : ''}{Math.round(sectorDetail.institutional_net_buy)}억
-                  </span>
-                </div>
-                <div className="bg-gray-50 p-2 rounded-xl text-center">
-                  <span className="text-[9px] text-gray-400 block">공매도 평균</span>
-                  <span className="text-[11px] font-black text-gray-700">{sectorDetail.short_selling_ratio}%</span>
-                </div>
-              </div>
-
-              <div className="bg-amber-50/60 border border-amber-100 p-2 rounded-xl flex gap-1 items-start">
-                <span className="text-xs">💡</span>
-                <p className="text-[11px] text-amber-900 leading-relaxed font-semibold">
-                  {sectorDetail.investment_tip}
-                </p>
-              </div>
-
-              <div className="border-t pt-3 space-y-3">
-                <div>
-                  <span className="text-[11px] font-black text-emerald-700 block mb-1">📈 주요 호재 뉴스 Top 5</span>
-                  <div className="space-y-1">
-                    {sectorDetail.top_positive_news && sectorDetail.top_positive_news.length > 0 ? (
-                      sectorDetail.top_positive_news.map((news, idx) => (
-                        <div 
-                          key={news.id} 
-                          onClick={(e) => handleNewsRedirectToDetail(news.id, e)}
-                          className="text-[11px] text-gray-700 truncate font-medium hover:text-emerald-600 hover:underline cursor-pointer transition flex justify-between items-center"
-                        >
-                          <span className="truncate flex-1">
-                            <span className="text-emerald-500 font-bold mr-1">{idx + 1}.</span> {news.title}
-                          </span>
-                          <span className="text-[10px] text-emerald-600 bg-emerald-50 font-bold px-1.5 py-0.5 rounded ml-2 shrink-0">
-                            +{Math.round((news.sentiment_score || 0) * 100)}pt
-                          </span>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-[10px] text-gray-400">수집된 호재 뉴스가 없습니다.</div>
+                    {/* 🛠️ [버그 퇴치 마감] 중립 필터 파라미터를 상위 게이지미터 수식에 다이렉트 이식 연동 */}
+                    {isAllGaugeOpen && (
+                      <div className="py-2 bg-gray-50/40 border border-dashed border-gray-200 rounded-xl animate-fade-in">
+                        <GaugeMeter
+                          positive={sector.positive_count}
+                          negative={sector.negative_count}
+                          temperature={temp}
+                        />
+                      </div>
                     )}
+
+                    <div className="w-full flex gap-2" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        onClick={() => navigate(`/sector/${sector.sector_id}/news`)}
+                        className="flex-1 px-3 py-1.5 text-xs font-bold border border-gray-200 bg-white rounded-lg text-gray-700 hover:bg-gray-50 transition shadow-sm"
+                      >
+                        뉴스 ({sector.news_count})
+                      </button>
+                      <button
+                        onClick={() => navigate(`/sector/${sector.sector_id}/stocks`)}
+                        className="flex-1 px-3 py-1.5 text-xs font-bold border border-gray-200 bg-white rounded-lg text-gray-700 hover:bg-gray-50 transition shadow-sm"
+                      >
+                        주식 ({sector.stock_count})
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+            <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-between">
+              <h2 className="text-sm font-bold text-gray-700 mb-3">실시간 뉴스 감성 정밀 분석 통계</h2>
+              <div className="flex flex-col justify-between flex-1 gap-4">
+                <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 flex justify-between items-center">
+                  <div>
+                    <span className="text-xs text-gray-400 block font-medium">종합 뉴스 감성 지수</span>
+                    <span className="text-4xl font-black text-gray-800 tracking-tight mt-1 block">
+                      {sentimentScore}<span className="text-lg font-bold text-gray-400"> / 100 pt</span>
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[10px] text-gray-400 block font-bold">집계 방식</span>
+                    <span className="text-[11px] bg-slate-200 text-slate-800 font-bold px-2 py-0.5 rounded mt-1 inline-block">중립 노이즈 제거</span>
                   </div>
                 </div>
+                <div className={`p-4 rounded-xl border border-gray-100/70 flex-1 flex flex-col justify-center ${marketReport.bg}`}>
+                  <div className="flex items-center gap-1.5">
+                    <span className={`text-sm font-black ${marketReport.color}`}>{marketReport.status}</span>
+                  </div>
+                  <p className="text-[11px] text-gray-600 mt-1.5 leading-relaxed font-medium">{marketReport.desc}</p>
+                </div>
+              </div>
+            </div>
 
-                <div>
-                  <span className="text-[11px] font-black text-red-600 block mb-1">📉 주요 악재 뉴스 Top 5</span>
-                  <div className="space-y-1">
-                    {sectorDetail.top_negative_news && sectorDetail.top_negative_news.length > 0 ? (
-                      sectorDetail.top_negative_news.map((news, idx) => (
-                        <div 
-                          key={news.id} 
-                          onClick={(e) => handleNewsRedirectToDetail(news.id, e)}
-                          className="text-[11px] text-gray-700 truncate font-medium hover:text-red-500 hover:underline cursor-pointer transition flex justify-between items-center"
-                        >
-                          <span className="truncate flex-1">
-                            <span className="text-red-400 font-bold mr-1">{idx + 1}.</span> {news.title}
-                          </span>
-                          <span className="text-[10px] text-red-600 bg-red-50 font-bold px-1.5 py-0.5 rounded ml-2 shrink-0">
-                            -{Math.round(Math.abs(news.sentiment_score || 0) * 100)}pt
-                          </span>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-[10px] text-gray-400">수집된 악재 뉴스가 없습니다.</div>
-                    )}
+            <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-between">
+              <h2 className="text-sm font-bold text-gray-700 mb-4">실시간 거시 지표 가드</h2>
+              <div className="grid grid-cols-2 gap-3 flex-1 content-center">
+                <div className="p-3 bg-gray-50/60 border border-gray-100 rounded-xl">
+                  <span className="text-[11px] text-gray-400 block">VIX 변동성 지수</span>
+                  <div className="flex items-baseline gap-1 mt-1">
+                    <span className="text-lg font-bold text-gray-800">
+                      {macroData?.vix_score ? Number(macroData.vix_score).toFixed(2) : '0.00'}
+                    </span>
+                    <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${macroData?.vix_status === '위험' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                      {macroData?.vix_status || '확인중'}
+                    </span>
+                  </div>
+                </div>
+                <div className="p-3 bg-gray-50/60 border border-gray-100 rounded-xl">
+                  <span className="text-[11px] text-gray-400 block">원/달러 환율</span>
+                  <div className="flex items-baseline gap-1 mt-1 font-sans">
+                    <span className="text-base font-bold text-gray-800">
+                      ₩{macroData?.usd_krw_rate ? Number(macroData.usd_krw_rate).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '0.00'}
+                    </span>
+                    <span className={`text-[9px] font-bold ${Number(macroData?.usd_krw_change) < 0 ? 'text-blue-500' : 'text-red-500'}`}>
+                      {Number(macroData?.usd_krw_change) >= 0 ? '▲ ' : '▼ '}
+                      {macroData?.usd_krw_change ? Math.abs(Number(macroData.usd_krw_change)).toFixed(2) : '0.00'}%
+                    </span>
+                  </div>
+                </div>
+                <div className="p-3 bg-gray-50/60 border border-gray-100 rounded-xl col-span-2">
+                  <span className="text-[11px] text-gray-400 block">KOSPI 지수</span>
+                  <div className="flex justify-between items-baseline mt-1 font-sans">
+                    <span className="text-lg font-bold text-gray-800">
+                      {macroData?.kospi_index ? Number(macroData.kospi_index).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '0.00'}
+                    </span>
+                    <span className={`text-xs font-bold ${Number(macroData?.kospi_change) < 0 ? 'text-blue-500' : 'text-red-500'}`}>
+                      {Number(macroData?.kospi_change) >= 0 ? '▲ ' : '▼ '}
+                      {macroData?.kospi_change ? Math.abs(Number(macroData.kospi_change)).toFixed(2) : '0.00'}%
+                    </span>
                   </div>
                 </div>
               </div>
             </div>
-          ) : (
-            <div className="text-center py-20 text-xs text-gray-400">섹터를 선택해 주세요.</div>
-          )}
-        </div>
-      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-between">
-          <h2 className="text-sm font-bold text-gray-700 mb-3">📰 실시간 뉴스 감성 정밀 분석 통계</h2>
-          <div className="flex flex-col justify-between flex-1 gap-4">
-            <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 flex justify-between items-center">
-              <div>
-                <span className="text-xs text-gray-400 block font-medium">종합 뉴스 감성 지수</span>
-                <span className="text-4xl font-black text-gray-800 tracking-tight mt-1 block">
-                  {sentimentScore}<span className="text-lg font-bold text-gray-400"> / 100 pt</span>
-                </span>
-              </div>
-              <div className="text-right">
-                <span className="text-[10px] text-gray-400 block font-bold">집계 방식</span>
-                <span className="text-[11px] bg-slate-200 text-slate-800 font-bold px-2 py-0.5 rounded mt-1 inline-block">중립 노이즈 제거</span>
-              </div>
-            </div>
-            <div className={`p-4 rounded-xl border border-gray-100/70 flex-1 flex flex-col justify-center ${marketReport.bg}`}>
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs">🎯</span>
-                <span className={`text-sm font-black ${marketReport.color}`}>{marketReport.status}</span>
-              </div>
-              <p className="text-[11px] text-gray-600 mt-1.5 leading-relaxed font-medium">{marketReport.desc}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-between">
-          <h2 className="text-sm font-bold text-gray-700 mb-4">실시간 거시 지표 가드</h2>
-          <div className="grid grid-cols-2 gap-3 flex-1 content-center">
-            <div className="p-3 bg-gray-50/60 border border-gray-100 rounded-xl">
-              <span className="text-[11px] text-gray-400 block">VIX 변동성 지수</span>
-              <div className="flex items-baseline gap-1 mt-1">
-                <span className="text-lg font-bold text-gray-800">{macroData?.vix_score}</span>
-                <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-bold">{macroData?.vix_status}</span>
-              </div>
-            </div>
-            <div className="p-3 bg-gray-50/60 border border-gray-100 rounded-xl">
-              <span className="text-[11px] text-gray-400 block">원/달러 환율</span>
-              <div className="flex items-baseline gap-1 mt-1">
-                <span className="text-lg font-bold text-gray-800">₩{macroData?.usd_krw_rate}</span>
-                <span className="text-[9px] text-red-500 font-bold">▲ {macroData?.usd_krw_change}%</span>
-              </div>
-            </div>
-            <div className="p-3 bg-gray-50/60 border border-gray-100 rounded-xl col-span-2">
-              <span className="text-[11px] text-gray-400 block">KOSPI 지수</span>
-              <div className="flex justify-between items-baseline mt-1">
-                <span className="text-lg font-bold text-gray-800">{macroData?.kospi_index}</span>
-                <span className="text-xs text-blue-500 font-bold">▼ {macroData?.kospi_change}%</span>
+            <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex flex-col">
+              <h2 className="text-sm font-bold text-gray-700 mb-3">AI 마켓 이상 징후 레이더</h2>
+              <div className="flex flex-col gap-2 overflow-y-auto flex-1 max-h-[160px] pr-1">
+                {anomalies.map((signal) => (
+                  <div key={signal.id} className={`p-2.5 rounded-xl border text-xs flex gap-2 items-start ${signal.level === 'danger' ? 'bg-red-50/60 border-red-100 text-red-950' : signal.level === 'warning' ? 'bg-amber-50/60 border-amber-100 text-amber-950' : 'bg-blue-50/60 border-blue-100 text-blue-950'}`}>
+                    <div>
+                      <div className="font-bold">{signal.title}</div>
+                      <div className="text-[11px] text-gray-600 mt-0.5 leading-relaxed font-medium">{signal.description}</div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex flex-col">
-          <h2 className="text-sm font-bold text-gray-700 mb-3">AI 마켓 이상 징후 레이더</h2>
-          <div className="flex flex-col gap-2 overflow-y-auto flex-1 max-h-[160px] pr-1">
-            {anomalies.map((signal) => (
-              <div key={signal.id} className={`p-2.5 rounded-xl border text-xs flex gap-2 items-start ${signal.level === 'danger' ? 'bg-red-50/60 border-red-100 text-red-950' : signal.level === 'warning' ? 'bg-amber-50/60 border-amber-100 text-amber-950' : 'bg-blue-50/60 border-blue-100 text-blue-950'}`}>
-                <span className="mt-0.5">{signal.level === 'danger' ? '🚨' : signal.level === 'warning' ? '⚠️' : 'ℹ️'}</span>
-                <div>
-                  <div className="font-bold">{signal.title}</div>
-                  <div className="text-[11px] text-gray-600 mt-0.5 leading-relaxed font-medium">{signal.description}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
-        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm md:col-span-1">
-          <h2 className="text-sm font-bold text-gray-700 mb-4">📅 핵심 증시 일정 & D-Day</h2>
-          <div className="flex flex-col gap-2">
-            {schedules.map((schedule) => (
-              <div key={schedule.id} className="flex justify-between items-center bg-gray-50 p-3 rounded-xl border border-gray-100">
-                <div>
-                  <span className="text-[9px] font-bold px-1.5 py-0.5 bg-gray-200 text-gray-700 rounded">
-                    {schedule.category}
+        {/* 우측 영역: 정밀 분석 리포트, 핵심 증시 일정, 당일 수급 의견서 통합 레이아웃 마감 컬럼 */}
+        <div className="xl:col-span-1 flex flex-col gap-6 w-full xl:mt-9">
+          <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col gap-4">
+            {sectorLoading ? (
+              <div className="text-center py-20 text-xs text-gray-400 font-medium">데이터 스트리밍 중...</div>
+            ) : sectorDetail ? (
+              <div className="space-y-4">
+                <div className="flex justify-between items-center border-b pb-2">
+                  <h3 className="text-sm font-black text-gray-800">
+                    {sectors.find(s => s.sector_id === selectedSector)?.sector_name || '반도체'} 리포트
+                  </h3>
+                  <span className="text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100 px-2 py-0.5 rounded-full">
+                    {sectorDetail.sentiment_status}
                   </span>
-                  <div className="text-xs font-bold text-gray-800 mt-1">{schedule.title}</div>
-                  <div className="text-[10px] text-gray-400 mt-0.5">{schedule.event_date}</div>
                 </div>
-                <span className={`text-[11px] font-black px-2.5 py-1 rounded-md ${
-                  schedule.d_day === 0 ? 'bg-red-500 text-white' : 
-                  schedule.d_day <= 3 ? 'bg-amber-500 text-white' : 'bg-gray-700 text-white'
-                }`}>
-                  {schedule.d_day === 0 ? 'D-Day' : `D-${schedule.d_day}`}
-                </span>
+
+                <div className="grid grid-cols-3 gap-1.5">
+                  <div className="bg-gray-50 p-2 rounded-xl text-center">
+                    <span className="text-[9px] text-gray-400 block">외인 누적</span>
+                    <span className={`text-[11px] font-black ${sectorDetail.foreigner_net_buy >= 0 ? 'text-red-500' : 'text-blue-500'}`}>
+                      {sectorDetail.foreigner_net_buy >= 0 ? '+' : ''}{Math.round(sectorDetail.foreigner_net_buy)}억
+                    </span>
+                  </div>
+                  <div className="bg-gray-50 p-2 rounded-xl text-center">
+                    <span className="text-[9px] text-gray-400 block">기관 누적</span>
+                    <span className={`text-[11px] font-black ${sectorDetail.institutional_net_buy >= 0 ? 'text-red-500' : 'text-blue-500'}`}>
+                      {sectorDetail.institutional_net_buy >= 0 ? '+' : ''}{Math.round(sectorDetail.institutional_net_buy)}억
+                    </span>
+                  </div>
+                  <div className="bg-gray-50 p-2 rounded-xl text-center">
+                    <span className="text-[9px] text-gray-400 block">공매도 평균</span>
+                    <span className="text-[11px] font-black text-gray-700">{sectorDetail.short_selling_ratio}%</span>
+                  </div>
+                </div>
+
+                <div className="bg-amber-50/60 border border-amber-100 p-2 rounded-xl flex gap-1 items-start">
+                  <p className="text-[11px] text-amber-900 leading-relaxed font-semibold">
+                    {sectorDetail.investment_tip}
+                  </p>
+                </div>
+
+                <div className="border-t pt-3 space-y-3">
+                  <div>
+                    <span className="text-[11px] font-black text-emerald-700 block mb-1">주요 호재 뉴스 Top 5</span>
+                    <div className="space-y-1">
+                      {sectorDetail.top_positive_news && sectorDetail.top_positive_news.length > 0 ? (
+                        sectorDetail.top_positive_news.map((news, idx) => (
+                          <div 
+                            key={news.id} 
+                            onClick={(e) => handleNewsRedirectToDetail(news.id, e)}
+                            className="text-[11px] text-gray-700 truncate font-medium hover:text-emerald-600 hover:underline cursor-pointer transition flex justify-between items-center"
+                          >
+                            <span className="truncate flex-1">
+                              <span className="text-emerald-500 font-bold mr-1">{idx + 1}.</span> {news.title}
+                            </span>
+                            <span className="text-[10px] text-emerald-600 bg-emerald-50 font-bold px-1.5 py-0.5 rounded ml-2 shrink-0">
+                              +{Math.round((news.sentiment_score || 0) * 100)}pt
+                            </span>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-[10px] text-gray-400">수집된 호재 뉴스가 없습니다.</div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <span className="text-[11px] font-black text-red-600 block mb-1">주요 악재 뉴스 Top 5</span>
+                    <div className="space-y-1">
+                      {sectorDetail.top_negative_news && sectorDetail.top_negative_news.length > 0 ? (
+                        sectorDetail.top_negative_news.map((news, idx) => (
+                          <div 
+                            key={news.id} 
+                            onClick={(e) => handleNewsRedirectToDetail(news.id, e)}
+                            className="text-[11px] text-gray-700 truncate font-medium hover:text-red-500 hover:underline cursor-pointer transition flex justify-between items-center"
+                          >
+                            <span className="truncate flex-1">
+                              <span className="text-red-400 font-bold mr-1">{idx + 1}.</span> {news.title}
+                            </span>
+                            <span className="text-[10px] text-red-600 bg-red-50 font-bold px-1.5 py-0.5 rounded ml-2 shrink-0">
+                              -{Math.round(Math.abs(news.sentiment_score || 0) * 100)}pt
+                            </span>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-[10px] text-gray-400">수집된 악재 뉴스가 없습니다.</div>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
-            ))}
+            ) : (
+              <div className="text-center py-20 text-xs text-gray-400">섹터를 선택해 주세요.</div>
+            )}
+          </div>
+
+          <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm w-full">
+            <h2 className="text-sm font-bold text-gray-700 mb-4">핵심 증시 일정 및 D-Day</h2>
+            <div className="flex flex-col gap-2 max-h-[180px] overflow-y-auto pr-1">
+              {schedules.map((schedule) => (
+                <div key={schedule.id} className="flex justify-between items-center bg-gray-50 p-3 rounded-xl border border-gray-100">
+                  <div className="min-w-0 flex-1 mr-2">
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 bg-gray-200 text-gray-700 rounded">
+                      {schedule.category}
+                    </span>
+                    <div className="text-xs font-bold text-gray-800 mt-1 truncate">{schedule.title}</div>
+                    <div className="text-[10px] text-gray-400 mt-0.5">{schedule.event_date}</div>
+                  </div>
+                  <span className={`text-[11px] font-black px-2.5 py-1 rounded-md shrink-0 text-white ${
+                    schedule.d_day === 0 ? 'bg-red-500' : 
+                    schedule.d_day <= 3 ? 'bg-amber-500' : 'bg-gray-700'
+                  }`}>
+                    {schedule.d_day === 0 ? 'D-Day' : `D-${schedule.d_day}`}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="bg-white border border-gray-100 p-4 rounded-2xl shadow-sm w-full flex flex-col justify-between gap-3 animate-fade-in">
+            <div>
+              <span className="text-xs font-black text-gray-800 block tracking-tight">당일 자본 시장 수급 동향 및 분석 의견서</span>
+              <span className="text-[9px] text-gray-400 block mt-0.5">실시간 투자 주체별 누적 합산 거래 대금 기준</span>
+            </div>
+            
+            <div className="grid grid-cols-3 gap-2 text-center text-[11px] font-semibold">
+              <div className="bg-gray-50 p-2 rounded-xl border border-gray-100">
+                <span className="text-[9px] text-gray-400 block mb-0.5">외국인 자본</span>
+                <span className="font-black text-red-600">+2,415억</span>
+              </div>
+              <div className="bg-gray-50 p-2 rounded-xl border border-gray-100">
+                <span className="text-[9px] text-gray-400 block mb-0.5">기관 자본</span>
+                <span className="font-black text-blue-600">-814억</span>
+              </div>
+              <div className="bg-gray-50 p-2 rounded-xl border border-gray-100">
+                <span className="text-[9px] text-gray-400 block mb-0.5">개인 자본</span>
+                <span className="font-black text-blue-600">-1,601억</span>
+              </div>
+            </div>
+
+            <div className="bg-gray-50 p-3 rounded-xl border border-gray-100 text-[11px] leading-relaxed">
+              <span className="text-[9px] font-bold text-gray-400 block mb-1">관제 종합 통계 서머리</span>
+              <p className="text-gray-600 font-medium text-[10px]">
+                금일 시장은 전반적인 호재성 뉴스의 증가로 심리가 안정화되었으며, 환율 압박 속에서도 반도체 섹터 중심의 외국인 매수세가 하방을 방어하여 안정적인 정체 국면을 유지하고 있습니다.
+              </p>
+            </div>
           </div>
         </div>
       </div>

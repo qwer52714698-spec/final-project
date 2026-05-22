@@ -23,6 +23,9 @@ function SectorStocks() {
   const [news, setNews] = useState([])
   const [newsLoading, setNewsLoading] = useState(true)
   const [selectedNews, setSelectedNews] = useState(null)
+  const [activeNewsTab, setActiveNewsTab] = useState('전체')
+  const [newsPage, setNewsPage] = useState(1)
+  const newsPerPage = 6
 
   // 🛠️ 판단 기준 툴팁 서브 토글 상태
   const [showCriteriaHelp, setShowCriteriaHelp] = useState(false)
@@ -114,7 +117,14 @@ function SectorStocks() {
   const handleNewsClick = (newsItem) => {
     setSelectedNews(newsItem)
   }
-
+const filteredNews = news.filter(n => {
+    if (activeNewsTab === '전체') return true;
+const sentimentMap = { '긍정': 'positive', '부정': 'negative', '중립': 'neutral' };
+    return n.sentiment_label === sentimentMap[activeNewsTab];
+  });
+  
+  const currentNews = filteredNews.slice((newsPage - 1) * newsPerPage, newsPage * newsPerPage);
+  const totalPages = Math.ceil(filteredNews.length / newsPerPage);
   const handleBackToList = () => {
     setSelectedNews(null)
     navigate(`/sector/${sectorId}/stocks`)
@@ -283,15 +293,34 @@ function SectorStocks() {
                   <div className="text-center py-12 text-xs text-gray-400 font-bold animate-pulse">실시간 기사를 파싱해오는 중입니다.</div>
                 ) : news.length === 0 ? (
                   <div className="text-center py-12 text-xs font-bold text-gray-400 bg-gray-50 rounded-xl border border-dashed">
-                    아직 수집된 기사가 존재하지 않습니다. 우측 상단의 뉴스 수집을 가동해 주세요.
+                    아직 수집된 기사가 존재하지 않습니다.
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[500px] overflow-y-auto pr-1">
-                    {news.map(item => (
-                      <div key={item.id} onClick={() => handleNewsClick(item)} className="cursor-pointer transition transform hover:-translate-y-0.5">
-                        <NewsCard news={item} />
-                      </div>
-                    ))}
+                  <div className="space-y-4">
+                    {/* 탭 버튼 */}
+                    <div className="flex gap-2 mb-4">
+                      {['전체', '긍정', '부정', '중립'].map(tab => (
+                        <button key={tab} onClick={() => { setActiveNewsTab(tab); setNewsPage(1); }} className={`px-4 py-1 text-xs font-bold rounded-full border ${activeNewsTab === tab ? 'bg-slate-800 text-white' : 'bg-gray-100'}`}>
+                          {tab}
+                        </button>
+                      ))}
+                    </div>
+                    {/* 뉴스 목록 */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 min-h-[300px]">
+                      {currentNews.map(item => (
+                        <div key={item.id} onClick={() => handleNewsClick(item)} className="cursor-pointer transition transform hover:-translate-y-0.5">
+                          <NewsCard news={item} />
+                        </div>
+                      ))}
+                    </div>
+                    {/* 페이지네이션 */}
+                    <div className="flex justify-center gap-2 mt-6">
+                      {[...Array(totalPages)].map((_, i) => (
+                        <button key={i} onClick={() => setNewsPage(i + 1)} className={`px-3 py-1 text-xs font-bold rounded ${newsPage === i + 1 ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}>
+                          {i + 1}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>

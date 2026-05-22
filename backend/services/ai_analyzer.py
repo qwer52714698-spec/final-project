@@ -151,6 +151,42 @@ TITLE_SIGNAL_PATTERNS = (
     "금리",
     "인플레",
 )
+BASIS_POSITIVE_WEIGHTS = {
+    "영업익": 0.35,
+    "매출": 0.35,
+    "흑자": 0.35,
+    "수주": 0.35,
+    "계약": 0.35,
+    "공급": 0.35,
+    "투자": 0.25,
+    "인수": 0.25,
+    "승인": 0.25,
+    "확대": 0.2,
+    "성장": 0.2,
+    "호조": 0.2,
+    "출시": 0.2,
+    "상승": 0.2,
+    "호재": 0.2,
+    "개선": 0.2,
+}
+BASIS_NEGATIVE_WEIGHTS = {
+    "물가": -0.2,
+    "금리": -0.2,
+    "인플레": -0.2,
+    "노조": -0.2,
+    "판결": -0.2,
+    "반발": -0.2,
+    "제동": -0.2,
+    "하락": -0.2,
+    "우려": -0.2,
+    "악재": -0.2,
+    "규제": -0.2,
+    "리스크": -0.2,
+    "축소": -0.2,
+    "부진": -0.2,
+    "적자": -0.35,
+    "충격": -0.35,
+}
 BATCH_LIMIT = 20
 EVENT_TYPE_CANDIDATES = (
     "earnings",
@@ -197,6 +233,53 @@ def has_investment_signal(text: str) -> bool:
 def has_strong_title_signal(title: str) -> bool:
     lowered = title.lower()
     return any(pattern.lower() in lowered for pattern in TITLE_SIGNAL_PATTERNS)
+
+
+def build_sentiment_explanation(news: models.News) -> dict[str, Any]:
+    title = news.title or ""
+    content = news.content or ""
+    clean_text = preprocess_news(title, content)
+    combined = f"{title} {clean_text}".lower()
+    score = float(news.sentiment_score or 0.0)
+    label = str(news.sentiment_label or "neutral")
+
+    matched_terms: list[dict[str, Any]] = []
+
+    for term, weight in BASIS_POSITIVE_WEIGHTS.items():
+        if term.lower() in combined:
+            matched_terms.append(
+                {"term": term, "weight": weight, "direction": "positive"}
+            )
+
+    for term, weight in BASIS_NEGATIVE_WEIGHTS.items():
+        if term.lower() in combined:
+            matched_terms.append(
+                {"term": term, "weight": weight, "direction": "negative"}
+            )
+
+    matched_terms.sort(key=lambda item: abs(float(item["weight"])), reverse=True)
+    matched_terms = matched_terms[:6]
+
+    adjustments = []
+    if len(clean_text) < SHORT_ARTICLE_LENGTH:
+        adjustments.append({"rule": "짧은 기사 보정", "effect": "score x 0.6"})
+    if is_low_relevance_article(title, clean_text):
+        adjustments.append({"rule": "저관련성 기사 제한", "effect": f"abs(score) <= {LOW_RELEVANCE_SCORE_CAP}"})
+    if abs(score) >= MAX_STRONG_SCORE:
+        adjustments.append({"rule": "강한 점수 상한", "effect": f"abs(score) <= {MAX_STRONG_SCORE}"})
+
+    return {
+        "thresholds": {
+            "positive_over": 0.15,
+            "negative_under": -0.15,
+            "neutral_range": [-0.15, 0.15],
+        },
+        "final_score": round(score, 3),
+        "final_label": label,
+        "basis_note": "GPT 1차 판단 후 기사 길이/관련성 규칙으로 보수 조정한 점수입니다.",
+        "matched_terms": matched_terms,
+        "adjustments": adjustments,
+    }
 
 
 def build_analysis_prompt(news: models.News, sector_name: str) -> str:

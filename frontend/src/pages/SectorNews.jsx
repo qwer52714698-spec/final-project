@@ -5,51 +5,44 @@ import NewsCard from '../components/NewsCard'
 import CommentList from '../components/CommentList'
 import CommentForm from '../components/CommentForm'
 
-const PAGE_SIZE = 10
-
 function SectorNews() {
   const { sectorId } = useParams()
   const navigate = useNavigate()
-  const location = useLocation()  // ✅ 마이페이지에서 전달된 state 받기
+  const location = useLocation()
   const [news, setNews] = useState([])
   const [sector, setSector] = useState(null)
   const [loading, setLoading] = useState(true)
   const [selectedNews, setSelectedNews] = useState(null)
-  const [analyzing, setAnalyzing] = useState(false)  // 🆕 분석 중 상태
-  // ✅ 페이지네이션 상태
-  const [currentPage, setCurrentPage] = useState(1)
-  const [totalCount, setTotalCount] = useState(0)
-  // ✅ 댓글 새로고침용
-  const [refreshKey, setRefreshKey] = useState(0)
+  const [analyzing, setAnalyzing] = useState(false)
 
   useEffect(() => {
-    setCurrentPage(1)
-    loadNews(1)
+    loadNewsAndCheckFocus()
     loadSectorInfo()
+  }, [sectorId, location.search])
 
-    // ✅ 마이페이지에서 넘어온 경우 해당 뉴스 API로 직접 가져와서 바로 열기
-    const targetNewsId = location.state?.targetNewsId
-    if (targetNewsId) {
-      newsApi.getNewsById(targetNewsId)
-        .then(response => {
-          setSelectedNews(response.data)
-          navigate(location.pathname, { replace: true, state: {} })
-        })
-        .catch(error => console.error('뉴스 로딩 실패:', error))
-    }
-  }, [sectorId])
-
-  useEffect(() => {
-    loadNews(currentPage)
-  }, [currentPage])
-
-  const loadNews = async (page) => {
-    setLoading(true)
+  const loadNewsAndCheckFocus = async () => {
     try {
-      const response = await newsApi.getNewsBySector(sectorId, page, PAGE_SIZE)
-      const items = response.data.items
-      setNews(items) // ✅ 응답 구조 { total, page, size, items } 반영
-      setTotalCount(response.data.total)
+      const response = await newsApi.getNewsBySector(sectorId, 1, 50)
+      const newsItems = response.data.items
+      setNews(newsItems)
+
+      // 대시보드에서 쿼리스트링(?newsId=값)을 달고 진입했을 때 강제 팝업 바인딩
+      const searchParams = new URLSearchParams(location.search)
+      const focusNewsId = searchParams.get('newsId')
+      if (focusNewsId) {
+        // 이미 받아온 뉴스 풀에서 찾거나, 없으면 단일 상세조회 API 연동 대응
+        const found = newsItems.find(item => item.id === parseInt(focusNewsId))
+        if (found) {
+          setSelectedNews(found)
+        } else {
+          try {
+            const singleRes = await axios.get(`http://localhost:8000/news/${focusNewsId}`)
+            setSelectedNews(singleRes.data)
+          } catch (e) {
+            console.error('단일 상세 타겟 뉴스 로드 실패:', e)
+          }
+        }
+      }
     } catch (error) {
       console.error('뉴스 로딩 실패:', error)
     } finally {
@@ -77,47 +70,20 @@ function SectorNews() {
     }
   }
 
-  // 🆕 개별 뉴스 AI 분석
-  const handleAnalyzeSingle = async () => {
-    if (!selectedNews) return
-
-    setAnalyzing(true)
-    try {
-      const response = await newsApi.analyzeSingleNews(selectedNews.id)
-      alert('AI 감성 분석이 완료되었습니다.')
-      setSelectedNews(response.data)  // 분석 결과로 업데이트
-    } catch (error) {
-      console.error('분석 실패:', error)
-      alert('AI 분석에 실패했습니다.')
-    } finally {
-      setAnalyzing(false)
-    }
-  }
-
   const handleNewsClick = (newsItem) => {
     setSelectedNews(newsItem)
   }
 
   const handleBackToList = () => {
     setSelectedNews(null)
-  }
-
-  const totalPages = Math.ceil(totalCount / PAGE_SIZE)
-
-  const getPageNumbers = () => {
-    const pages = []
-    let start = Math.max(1, currentPage - 2)
-    let end = Math.min(totalPages, start + 4)
-    if (end - start < 4) start = Math.max(1, end - 4)
-    for (let i = start; i <= end; i++) pages.push(i)
-    return pages
+    navigate(`/sector/${sectorId}/news`) // 쿼리스트링 클리어 처리
   }
 
   if (loading) {
     return <div className="text-center py-20">로딩 중...</div>
   }
 
-  // 뉴스 상세보기 + 댓글
+  // 뉴스 상세보기 + 댓글 (보라색 AI 분석 버튼 완벽 도려냄)
   if (selectedNews) {
     return (
       <div>
@@ -131,17 +97,8 @@ function SectorNews() {
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <div className="flex justify-between items-start mb-4">
             <h1 className="text-2xl font-bold flex-1">{selectedNews.title}</h1>
-            {/* 🆕 AI 분석 버튼 */}
-            <button
-              onClick={handleAnalyzeSingle}
-              disabled={analyzing}
-              className="ml-4 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition disabled:bg-gray-400"
-            >
-              {analyzing ? '분석 중...' : '🤖 AI 분석'}
-            </button>
           </div>
 
-          {/* 감성 점수 표시 */}
           <div className="flex gap-3 mb-4">
             <span className={`px-3 py-1 rounded-full text-sm font-medium ${
               selectedNews.sentiment_label === 'positive' ? 'bg-green-100 text-green-700' :
@@ -170,10 +127,10 @@ function SectorNews() {
           <div className="flex justify-between items-center text-sm text-gray-500 border-t pt-4">
             <span>{new Date(selectedNews.published_at).toLocaleDateString('ko-KR')}</span>
             {selectedNews.url && (
-              <a
-                href={selectedNews.url}
-                target="_blank"
-                rel="noopener noreferrer"
+              <a 
+                href={selectedNews.url} 
+                target="_blank" 
+                rel="noopener noreferrer" 
                 className="text-blue-600 hover:underline"
               >
                 원문 보기 →
@@ -220,10 +177,6 @@ function SectorNews() {
         </button>
       </div>
 
-      {totalCount > 0 && (
-        <div className="text-sm text-gray-500 mb-4">총 {totalCount}개</div>
-      )}
-
       {news.length === 0 ? (
         <div className="text-center py-20 text-gray-500">
           아직 뉴스가 없습니다. 뉴스 수집 버튼을 눌러주세요.
@@ -235,44 +188,6 @@ function SectorNews() {
               <NewsCard news={item} />
             </div>
           ))}
-        </div>
-      )}
-
-      {/* ✅ 페이지네이션 */}
-      {totalPages > 1 && (
-        <div className="mt-8">
-          <div className="flex items-center justify-center gap-1">
-            <button
-              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              className="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-100 disabled:opacity-30 transition"
-            >
-              ←
-            </button>
-            {getPageNumbers().map(page => (
-              <button
-                key={page}
-                onClick={() => setCurrentPage(page)}
-                className={`w-9 h-9 flex items-center justify-center rounded-lg text-sm font-medium transition ${
-                  currentPage === page
-                    ? 'bg-blue-600 text-white border border-blue-600'
-                    : 'border border-gray-300 text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                {page}
-              </button>
-            ))}
-            <button
-              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
-              className="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-100 disabled:opacity-30 transition"
-            >
-              →
-            </button>
-          </div>
-          <div className="text-center text-xs text-gray-400 mt-2">
-            {currentPage} / {totalPages} 페이지 · 총 {totalCount}개
-          </div>
         </div>
       )}
     </div>

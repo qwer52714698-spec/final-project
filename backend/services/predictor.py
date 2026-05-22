@@ -53,7 +53,8 @@ class StockPredictor:
         
         df['val_score'] = df['op_income'] / (close_col * df['Volume'].replace(0, 1))
 
-        return df.dropna()
+        df = df.ffill().bfill()
+        return df
 
     def train_and_predict(self):
         raw_data = self.collector.fetch_all_indicators(self.ticker)
@@ -126,6 +127,6 @@ class StockPredictor:
             "predicted_return": cumulative_predicted,
             "win_rate": win_rate,
             "period_start": X.index[-6].strftime('%Y-%m-%d'),
-            "period_end": X.index[-2].strftime('%Y-%m-%d'),
+            "period_end": X.index[-1].strftime('%Y-%m-%d'),
             "predicted_next_close": predicted_next_price,
         }

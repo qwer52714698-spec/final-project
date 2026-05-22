@@ -31,7 +31,13 @@ function CommentForm({ newsId, onCommentAdded }) {
       }
     } catch (error) {
       console.error('댓글 작성 실패:', error)
-      alert('댓글 작성에 실패했습니다.')
+      const status = error.response?.status
+      const detail = error.response?.data?.detail
+      if (status === 401) {
+        alert('로그인이 만료되었습니다. 다시 로그인해주세요.')
+      } else {
+        alert(detail || '댓글 작성에 실패했습니다.')
+      }
     } finally {
       setLoading(false)
     }

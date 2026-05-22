@@ -37,7 +37,7 @@ function SectorNews() {
 
       // 대시보드에서 쿼리스트링(?newsId=값)을 달고 진입했을 때 강제 팝업 바인딩
       const searchParams = new URLSearchParams(location.search)
-      const focusNewsId = searchParams.get('newsId')
+      const focusNewsId = searchParams.get('newsId') || location.state?.targetNewsId
       if (focusNewsId) {
         // 이미 받아온 뉴스 풀에서 찾거나, 없으면 단일 상세조회 API 연동 대응
         const found = newsItems.find(item => item.id === parseInt(focusNewsId))

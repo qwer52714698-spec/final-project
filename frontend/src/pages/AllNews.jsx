@@ -4,7 +4,7 @@ import { newsApi } from '../api/newsApi'
 import NewsCard from '../components/NewsCard'
 import CommentList from '../components/CommentList'
 import CommentForm from '../components/CommentForm'
-import axios from 'axios'
+import api from '../api/axios'
 
 const PAGE_SIZE = 10
 
@@ -47,7 +47,7 @@ function AllNews() {
       }
       
       // 목록 풀에 아직 로드가 안 된 과거 뉴스일 경우 백엔드 보존 테이블 단일 다이렉트 쿼리 통신
-      axios.get(`http://localhost:8000/news/${focusNewsId}`)
+      api.get(`/news/${focusNewsId}`)
         .then(res => {
           setSelectedNews(res.data)
         })

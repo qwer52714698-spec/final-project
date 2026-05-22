@@ -6,7 +6,7 @@ import StockChart from '../components/StockChart'
 import NewsCard from '../components/NewsCard'
 import CommentList from '../components/CommentList'
 import CommentForm from '../components/CommentForm'
-import axios from 'axios'
+import api from '../api/axios'
 
 function SectorStocks() {
   const { sectorId } = useParams()
@@ -44,9 +44,14 @@ function SectorStocks() {
       // 주가 데이터(prices)가 있는 정상 종목만 필터링하여 화면 무결성 마진 확보
       const validStocks = data.filter(item => item.prices && item.prices.length > 0)
       setStocksWithPrices(validStocks)
-      
-      if (validStocks.length > 0 && !selectedStockCombo) {
-        setSelectedStockCombo(validStocks[0])
+
+      if (validStocks.length > 0) {
+        const matchedStock = selectedStockCombo
+          ? validStocks.find(item => item.stock.id === selectedStockCombo.stock.id)
+          : null
+        setSelectedStockCombo(matchedStock || validStocks[0])
+      } else {
+        setSelectedStockCombo(null)
       }
     } catch (error) {
       console.error('주식 데이터 로딩 실패:', error)
@@ -80,7 +85,7 @@ function SectorStocks() {
           setSelectedNews(found)
         } else {
           try {
-            const singleRes = await axios.get(`http://localhost:8000/news/${focusNewsId}`)
+            const singleRes = await api.get(`/news/${focusNewsId}`)
             setSelectedNews(singleRes.data)
           } catch (e) {
             console.error('단일 상세 타겟 뉴스 로드 실패:', e)

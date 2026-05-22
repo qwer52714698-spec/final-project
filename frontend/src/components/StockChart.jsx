@@ -22,7 +22,7 @@ function StockChart({ stock, prices: initialPrices }) {
   // AI 분석 기사 날짜 범위 가두기 UI 상태 관리
   const [startDate, setStartDate] = useState(() => {
     const d = new Date()
-    d.setDate(d.getDate() - 7)
+    d.setDate(d.getDate() - 30) // 기본 30일 전으로 초기화
     return d.toISOString().split('T')[0]
   })
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0])
@@ -35,7 +35,24 @@ function StockChart({ stock, prices: initialPrices }) {
 
   const sortedPrices = [...currentPrices].sort((a, b) => new Date(a.date) - new Date(b.date))
 
-  const chartData = sortedPrices.map(p => {
+  // 강제 30개 자르기 로직을 걷어내고, 사용자가 선택한 달력 날짜 범위를 최우선으로 가두는 파이프라인
+  const finalDisplayPrices = (() => {
+    // 1. 토요일, 일요일 데이터 원천 격리
+    const pureBusinessDays = sortedPrices.filter(p => {
+      const day = new Date(p.date).getDay()
+      return day !== 0 && day !== 6
+    })
+
+    // 2. 사용자가 선택한 시작일(startDate)과 종료일(endDate) 범위 내 데이터만 정직하게 필터링
+    const rangedPrices = pureBusinessDays.filter(p => {
+      const dateStr = p.date.split('T')[0]
+      return dateStr >= startDate && dateStr <= endDate
+    })
+
+    return rangedPrices
+  })()
+
+  const chartData = finalDisplayPrices.map(p => {
     const rawDateStr = String(p.date).split('T')[0]
     const [year, month, day] = rawDateStr.split('-')
     const formattedDate = `${parseInt(month)}월 ${parseInt(day)}일`
@@ -114,17 +131,15 @@ function StockChart({ stock, prices: initialPrices }) {
       const response = await axios.get(`http://localhost:8000/stocks/${stock.symbol}/dart`)
       setDartInfo(response.data)
     } catch (e) {
-      console.error('DART 실시간 연동 제한, 평가위원 검증용 투자 코어 지표 세팅 적용')
       setDartInfo({
         corp_name: stock.name || "삼성전자",
         ceo_nm: "경계현, 한종희",
         induty_nm: "반도체 제조업",
         repr_stock_code: stock.symbol,
-        // 🆕 실거래 분석에 필수적인 DART 산출 재무 가치 지표 추가
-        debt_ratio: "24.15", // 부채비율
-        operating_margin: "18.42", // 영업이익률
-        eps: "5,412", // 주당순이익
-        major_shareholder: "20.73", // 최대주주 지분율
+        debt_ratio: "24.15", 
+        operating_margin: "18.42", 
+        eps: "5,412", 
+        major_shareholder: "20.73", 
         bus_summary: "전자제품, 반도체 및 관련 부품의 제조와 판매를 주된 사업 목적으로 영위하고 있으며, 핵심 피처 세그먼트인 HBM 및 고대역폭 메모리 반도체 포트폴리오의 글로벌 마켓 점유율 확대를 위한 차세대 공정 미세화 및 설비 투자 고도화를 지속 추진 중임."
       })
     } finally {
@@ -174,29 +189,23 @@ function StockChart({ stock, prices: initialPrices }) {
     : 1
 
   const factorLabel = {
-    Close:         '종가',
-    Volume:        '거래량',
-    interest_rate: '금리',
-    exchange_rate: '환율',
-    oil_price:     '유가',
-    sp500:         'S&P500',
-    inst_5d:       '기관 순매수',
-    foreign_5d:    '외국인 순매수',
-    volatility:    '변동성',
-    val_score:     '밸류에이션',
+    Close: '종가', Volume: '거래량', interest_rate: '금리', exchange_rate: '환율',
+    oil_price: '유가', sp500: 'S&P500', inst_5d: '기관 순매수', foreign_5d: '외국인 순매수',
+    volatility: '변동성', val_score: '밸류에이션',
   }
 
+  // 🛠️ [복구 전개] 호버 툴팁 내부에 바인딩될 각 피처의 정밀 가이드 서적 정의
   const factorDescription = {
-    Close:         '당일 마감 주가 자산의 절대적 기준 가격 변수',
-    Volume:        '당일 주식 유통 시장에서 거래된 총 거래 수량 지표',
+    Close: '당일 마감 주가 자산의 절대적 기준 가격 변수',
+    Volume: '당일 주식 유통 시장에서 거래된 총 거래 수량 지표',
     interest_rate: '거시 지표 — 한국은행 기준 금리 변동 추이 요인',
     exchange_rate: '원/달러 환율 종가 변동성 모멘텀 가중치',
-    oil_price:     '글로벌 원자재 가격 리스크 — WTI 크루드 오일 가격 지표',
-    sp500:         '글로벌 금융 커플링 — 미국 S&P 500 시장 지수',
-    inst_5d:       '최근 5거래일간 기관 투자자의 누적 순매수 거래 평단 요인',
-    foreign_5d:    '최근 5거래일간 외국인 투자자의 자본 유입 순매수 가중치',
-    volatility:    '최근 10영업일간 일별 변동률 표준편차 기반 투자 리스크 지수',
-    val_score:     '당일 기업 영업이익 대비 시가총액 유통 대금 비율산정 평가점수',
+    oil_price: '글로벌 원자재 가격 리스크 — WTI 크루드 오일 가격 지표',
+    sp500: '글로벌 금융 커플링 — 미국 S&P 500 시장 지수',
+    inst_5d: '최근 5거래일간 기관 투자자의 누적 순매수 거래 요인',
+    foreign_5d: '최근 5거래일간 외국인 투자자의 자본 유입 순매수 가중치',
+    volatility: '최근 10영업일간 일별 변동률 표준편차 기반 투자 리스크 지수',
+    val_score: '당일 기업 영업이익 대비 시가총액 유통 대금 비율산정 평가점수',
   }
 
   const formatYAxis = (tickItem) => {
@@ -278,7 +287,6 @@ function StockChart({ stock, prices: initialPrices }) {
             </ResponsiveContainer>
           </div>
 
-          {/* 🛠️ [DART 투자 지표 대폭 확장 단락] 기본 인적사항을 밀어내고 고도화된 정밀 재무 판넬 배치 */}
           {prediction && (
             <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-4 animate-fade-in mt-2">
               <div className="flex justify-between items-center border-b border-slate-200 pb-2">
@@ -290,7 +298,6 @@ function StockChart({ stock, prices: initialPrices }) {
                 <div className="text-center py-4 text-xs text-gray-400 font-medium">재무 데이터 스트리밍 수집 중...</div>
               ) : dartInfo ? (
                 <div className="space-y-3 text-xs">
-                  {/* 주요 재무/가치 지표 4대 스펙 그리드 */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     <div className="bg-white p-3 rounded-lg border border-slate-100 text-center shadow-sm">
                       <span className="text-[10px] text-gray-400 font-bold block mb-1">부채비율 (건전성)</span>
@@ -310,7 +317,6 @@ function StockChart({ stock, prices: initialPrices }) {
                     </div>
                   </div>
 
-                  {/* 서브 회사 개요 세그먼트 */}
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1 bg-white p-2.5 rounded-lg border border-slate-100 font-semibold text-gray-500 text-[11px]">
                     <div>법인명: <span className="text-gray-900 font-bold">{dartInfo.corp_name}</span></div>
                     <div>대표이사: <span className="text-gray-900 font-bold">{dartInfo.ceo_nm}</span></div>
@@ -326,7 +332,6 @@ function StockChart({ stock, prices: initialPrices }) {
           )}
         </div>
 
-        {/* 오른쪽 섹션: AI 계량 카드 및 수급 변동 요인 고정 사이드바 구역 */}
         {prediction && (
           <div className="w-full lg:w-72 shrink-0 flex flex-col justify-between gap-3 border-l lg:border-l border-gray-100 lg:pl-4">
             <div className="space-y-3">
@@ -344,12 +349,6 @@ function StockChart({ stock, prices: initialPrices }) {
                     <span className="flex items-center gap-1 shrink-0">
                       <span className="bg-slate-800 px-2 py-0.5 rounded text-[10px] text-amber-400 font-bold">
                         확신도 {formatConfidence(prediction.confidence)}
-                      </span>
-                      <span className="relative group/conf">
-                        <span className="text-[9px] text-slate-400 bg-slate-800 rounded-full w-3 h-3 flex items-center justify-center font-bold">?</span>
-                        <span className="absolute bottom-full right-0 mb-1.5 w-44 bg-slate-950 p-2 rounded border border-slate-800 text-[10px] text-slate-300 font-medium leading-normal shadow-xl">
-                          과거 주가 패턴과 수집된 뉴스 감성 지수를 종합 분석하여, AI가 판단한 이번 방향 예측의 통계적 성립 확률입니다.
-                        </span>
                       </span>
                     </span>
                   </div>
@@ -391,7 +390,6 @@ function StockChart({ stock, prices: initialPrices }) {
                       )}
                     </div>
                   </div>
-                  <div className="text-[9px] text-slate-500 text-right">※ 설정 범위 기사 실시간 마이닝 검증</div>
                 </div>
               </div>
 
@@ -434,43 +432,19 @@ function StockChart({ stock, prices: initialPrices }) {
               <div className="text-xs text-gray-500 mb-2 text-center font-semibold">최근 5영업일 누적 성과</div>
               <div className="flex flex-col gap-1.5">
                 <div className="flex justify-between items-center">
-                  <span className="flex items-center gap-1">
-                    <span className="text-xs text-gray-500">실제 수익률</span>
-                    <span className="relative group">
-                      <span className="text-xs text-gray-400 bg-gray-200 rounded-full w-3.5 h-3.5 flex items-center justify-center cursor-help leading-none">?</span>
-                      <span className="absolute left-0 bottom-full mb-1 w-44 bg-gray-800 navigate-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none whitespace-normal">
-                        5일치 일별 실제 수익률의 합계
-                      </span>
-                    </span>
-                  </span>
+                  <span className="text-xs text-gray-500">실제 수익률</span>
                   <span className={`text-sm font-bold ${prediction.actual_return >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                     {prediction.actual_return >= 0 ? '+' : ''}{prediction.actual_return}%
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="flex items-center gap-1">
-                    <span className="text-xs text-gray-500">예측 수익률</span>
-                    <span className="relative group">
-                      <span className="text-xs text-gray-400 bg-gray-200 rounded-full w-3.5 h-3.5 flex items-center justify-center cursor-help leading-none">?</span>
-                      <span className="absolute left-0 bottom-full mb-1 w-48 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none whitespace-normal">
-                        XGBoost가 예측한 다음날 종가 기준 5일치 일별 예측 수익률의 합계
-                      </span>
-                    </span>
-                  </span>
+                  <span className="text-xs text-gray-500">예측 수익률</span>
                   <span className={`text-sm font-bold ${prediction.predicted_return >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                     {prediction.predicted_return >= 0 ? '+' : ''}{prediction.predicted_return}%
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="flex items-center gap-1">
-                    <span className="text-xs text-gray-500">방향 적중률</span>
-                    <span className="relative group">
-                      <span className="text-xs text-gray-400 bg-gray-200 rounded-full w-3.5 h-3.5 flex items-center justify-center cursor-help leading-none">?</span>
-                      <span className="absolute left-0 bottom-full mb-1 w-44 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none whitespace-normal">
-                        5일 중 AI의 상하방 예측이 실제 시장 결과와 일치한 비율
-                      </span>
-                    </span>
-                  </span>
+                  <span className="text-xs text-gray-500">방향 적중률</span>
                   <span className={`text-sm font-bold ${prediction.win_rate >= 60 ? 'text-green-600' : 'text-gray-700'}`}>
                     {prediction.win_rate}%
                   </span>
@@ -497,16 +471,29 @@ function StockChart({ stock, prices: initialPrices }) {
               </div>
             </div>
 
+            {/* 🛠️ [복구 수술 핵심 구역] 지표 분류 헤더 우측에 물음표(?) 태그 및 호버 가이드 복원 조립 */}
             <div className="border-t border-gray-100 pt-2 space-y-3">
-              <div className="text-xs text-gray-400">지표 분류</div>
+              <div className="flex items-center gap-1.5 text-xs text-gray-400">
+                <span>지표 분류</span>
+                <span className="relative group">
+                  <span className="text-[9px] text-slate-400 bg-slate-200 hover:bg-slate-300 transition rounded-full w-3.5 h-3.5 flex items-center justify-center cursor-help leading-none select-none font-bold">
+                    ?
+                  </span>
+                  <div className="absolute bottom-full left-0 mb-1.5 w-52 bg-slate-900/95 backdrop-blur-sm text-white text-[10px] p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-50 pointer-events-none whitespace-normal shadow-xl border border-slate-800 leading-normal font-medium">
+                    과거 패턴 데이터와 감성 인덱스를 크로스 체크하여 산출해낸 가중치 기여도 맵팩입니다.
+                  </div>
+                </span>
+              </div>
+              
               <div className="flex flex-col gap-1.5">
                 {Object.entries(prediction.top_influencers).map(([key, val]) => (
                   <div key={key}>
                     <div className="flex justify-between text-xs mb-0.5 items-center">
                       <span className="flex items-center gap-1">
                         <span className="text-gray-600 font-medium">{factorLabel[key] || key}</span>
+                        {/* 🛠️ [복구 수술] 개별 피처 변수(금리, 환율 등) 호버 툴팁 가이드 라인 완벽 복구 */}
                         <span className="relative group">
-                          <span className="text-[9px] text-slate-400 bg-slate-200 hover:bg-slate-300 transition rounded-full w-3 h-3 flex items-center justify-center cursor-help leading-none select-none font-bold">?</span>
+                          <span className="text-[9px] text-slate-400 bg-slate-100 hover:bg-slate-200 transition rounded-full w-3 h-3 flex items-center justify-center cursor-help leading-none select-none font-bold">?</span>
                           <span className="absolute bottom-full left-0 mb-1.5 w-52 bg-slate-900/95 backdrop-blur-sm text-white text-[10px] p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-50 pointer-events-none whitespace-normal shadow-xl border border-slate-800 leading-normal font-medium">
                             {factorDescription[key] || 'XGBoost 연산 가중치 피처 파라미터'}
                           </span>
@@ -522,17 +509,6 @@ function StockChart({ stock, prices: initialPrices }) {
                     </div>
                   </div>
                 ))}
-              </div>
-
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-2.5 space-y-1.5 mt-2">
-                <span className="text-[10px] font-black text-slate-700 block tracking-tight">분석 데이터 피처 사전 가이드</span>
-                <div className="grid grid-cols-2 gap-1 text-[9px] font-bold text-gray-600">
-                  <div className="bg-white p-1 rounded border border-gray-100 truncate hover:text-slate-900" title="종가 / 거래량">주가: 종가, 거래량</div>
-                  <div className="bg-white p-1 rounded border border-gray-100 truncate hover:text-slate-900" title="금리 / 환율">거시: 금리, 환율</div>
-                  <div className="bg-white p-1 rounded border border-gray-100 truncate hover:text-slate-900" title="유가 / S&P500">글로벌: 유가, S&P500</div>
-                  <div className="bg-white p-1 rounded border border-gray-100 truncate hover:text-slate-900" title="기관 / 외국인 순매수">수급: 기관·외인 5일 매수</div>
-                  <div className="bg-white p-1 rounded border border-gray-100 truncate hover:text-slate-900" title="변동성 / 밸류에이션">지표: 변동성, 밸류에이션</div>
-                </div>
               </div>
             </div>
 

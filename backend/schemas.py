@@ -60,6 +60,7 @@ class NewsResponse(BaseModel):
     collected_at: datetime
     sector: Optional[SectorResponse]
     comment_count: int = 0
+    sentiment_explanation: Optional[Dict[str, Any]] = None
 
     model_config = {"from_attributes": True}
 

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import { stocksApi } from '../api/stocksApi'
-import axios from 'axios'
+import api from '../api/axios'
 
 function StockChart({ stock, prices: initialPrices }) {
   const navigate = useNavigate()
@@ -30,6 +30,13 @@ function StockChart({ stock, prices: initialPrices }) {
   useEffect(() => {
     if (initialPrices) {
       setCurrentPrices(initialPrices)
+      if (initialPrices.length > 0) {
+        const sortedInitialPrices = [...initialPrices].sort((a, b) => new Date(a.date) - new Date(b.date))
+        const firstDate = String(sortedInitialPrices[0].date).split('T')[0]
+        const lastDate = String(sortedInitialPrices[sortedInitialPrices.length - 1].date).split('T')[0]
+        setStartDate(firstDate)
+        setEndDate(lastDate)
+      }
     }
   }, [initialPrices])
 
@@ -128,7 +135,7 @@ function StockChart({ stock, prices: initialPrices }) {
   const fetchDartCompanyInfo = async () => {
     setDartLoading(true)
     try {
-      const response = await axios.get(`http://localhost:8000/stocks/${stock.symbol}/dart`)
+      const response = await api.get(`/stocks/${stock.symbol}/dart`)
       setDartInfo(response.data)
     } catch (e) {
       setDartInfo({

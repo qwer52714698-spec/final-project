@@ -56,7 +56,7 @@ function MyPage() {
   }
 
   const handleGoToNews = (newsId, sectorId) => {
-    navigate(`/sector/${sectorId}/news`, { state: { targetNewsId: newsId } })
+    navigate(`/sector/${sectorId}/news?newsId=${newsId}`)
   }
 
   if (authLoading || commentsLoading) {

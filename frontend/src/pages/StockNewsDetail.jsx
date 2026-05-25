@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { newsApi } from '../api/newsApi'
 import { commentsApi } from '../api/commentsApi'
 import CommentForm from '../components/CommentForm'
-import axios from 'axios'
+import api from '../api/axios'
 
 function StockNewsDetail() {
   const { symbol } = useParams()
@@ -88,7 +88,7 @@ function StockNewsDetail() {
       const token = localStorage.getItem('token')
       const headers = token ? { Authorization: `Bearer ${token}` } : {}
       
-      await axios.delete(`http://localhost:8000/comments/${commentId}`, { headers })
+      await api.delete(`/comments/${commentId}`, { headers })
       alert('댓글이 안전하게 삭제되었습니다.')
       fetchCommentsForNews(newsId)
     } catch (error) {

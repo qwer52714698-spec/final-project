@@ -1,7 +1,128 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { newsApi } from '../api/newsApi'
 import api from '../api/axios'
+
+// ✅ 배너 슬라이더 컴포넌트
+const SLIDES = [
+  {
+    bg: 'bg-purple-50',
+    tag: 'MarketMood',
+    tagColor: 'text-purple-700',
+    title: '오늘의 Mood, 내일의 Move',
+    titleColor: 'text-purple-950',
+    sub: 'AI가 분석한 시장 감성으로 내일을 준비하세요',
+    subColor: 'text-purple-800',
+    sub2: 'AI 감성 분석 · XGBoost 주가 예측 · 섹터별 온도계',
+    sub2Color: 'text-purple-600',
+  },
+  {
+    bg: 'bg-blue-50',
+    badge: 'GPT-4o-mini',
+    badgeBg: 'bg-blue-200 text-blue-900',
+    title: 'Feel the Market',
+    titleColor: 'text-blue-950',
+    sub: 'GPT-4o-mini가 뉴스 본문을 읽고 긍정 · 중립 · 부정으로 분류',
+    subColor: 'text-blue-800',
+    sub2: '섹터별 감성 온도를 실시간으로 확인하세요',
+    sub2Color: 'text-blue-600',
+    btnText: '전체 뉴스 보기',
+    btnBg: 'bg-blue-700',
+    btnText2: 'text-blue-50',
+    path: '/news',
+  },
+  {
+    bg: 'bg-indigo-100',
+    badge: 'XGBoost',
+    badgeBg: 'bg-purple-200 text-purple-900',
+    badgeMarginTop: 'mt-2',
+    title: 'Mood Moves Markets',
+    titleColor: 'text-gray-800',
+    sub: 'XGBoost 머신러닝이 상승 · 횡보 · 하락을 예측합니다',
+    subColor: 'text-gray-700',
+    sub2: '금리 · 환율 · 유가 · S&P500 · 수급 데이터를 종합 분석',
+    sub2Color: 'text-gray-600',
+  },
+]
+
+function BannerSlider() {
+  const [cur, setCur] = useState(0)
+  const navigate = useNavigate()
+  const timerRef = useRef(null)
+
+  const go = (n) => {
+    setCur((n + SLIDES.length) % SLIDES.length)
+  }
+
+  useEffect(() => {
+    timerRef.current = setInterval(() => setCur(c => (c + 1) % SLIDES.length), 4000)
+    return () => clearInterval(timerRef.current)
+  }, [])
+
+  const slide = SLIDES[cur]
+
+  return (
+    <div className="relative w-full h-56 rounded-2xl overflow-hidden mb-8">
+      {SLIDES.map((s, i) => (
+        <div
+          key={i}
+          className={`absolute inset-0 flex items-center px-16 transition-opacity duration-700 ${s.bg} ${i === cur ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+        >
+          <div>
+            {s.badge && (
+              <span className={`inline-block text-xs font-semibold px-3 py-1 rounded-full mb-3 ${s.badgeBg} ${s.badgeMarginTop || ''}`}>
+                {s.badge}
+              </span>
+            )}
+            {s.tag && (
+              <div className={`text-xs font-semibold tracking-widest uppercase mb-3 ${s.tagColor}`}>
+                {s.tag}
+              </div>
+            )}
+            <div className={`text-3xl font-bold leading-snug mb-2 whitespace-pre-line ${s.titleColor}`}>
+              {s.title}
+            </div>
+            <div className={`text-sm mb-1 ${s.subColor}`}>{s.sub}</div>
+            <div className={`text-xs mb-5 opacity-70 ${s.sub2Color}`}>{s.sub2}</div>
+            {s.btnText && (
+              <button
+                onClick={() => navigate(s.path)}
+                className={`px-5 py-2 rounded-full text-sm font-semibold ${s.btnBg} ${s.btnText2}`}
+              >
+                {s.btnText}
+              </button>
+            )}
+          </div>
+        </div>
+      ))}
+
+      {/* 이전/다음 버튼 */}
+      <button
+        onClick={() => go(cur - 1)}
+        className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/60 border border-black/10 flex items-center justify-center text-gray-700 hover:bg-white/90 transition"
+      >
+        ‹
+      </button>
+      <button
+        onClick={() => go(cur + 1)}
+        className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/60 border border-black/10 flex items-center justify-center text-gray-700 hover:bg-white/90 transition"
+      >
+        ›
+      </button>
+
+      {/* 하단 점 */}
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
+        {SLIDES.map((_, i) => (
+          <button
+            key={i}
+            onClick={() => go(i)}
+            className={`h-2 rounded-full transition-all duration-300 ${i === cur ? 'w-6 bg-black/40' : 'w-2 bg-black/20'}`}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
 
 function GaugeMeter({ positive, negative, temperature }) {
   const total = positive + negative
@@ -55,9 +176,10 @@ function Dashboard() {
   const [selectedSector, setSelectedSector] = useState(1)
   const [sectorDetail, setSectorDetail] = useState(null)
   const [sectorLoading, setSectorLoading] = useState(false)
-  
+
+  // 일괄 체온계 토글 단일 상태 엔진 복원 보전
   const [isAllGaugeOpen, setIsAllGaugeOpen] = useState(false)
-  
+
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -146,6 +268,10 @@ function Dashboard() {
 
   return (
     <div className="space-y-8">
+
+      {/* ✅ 배너 슬라이더 */}
+      <BannerSlider />
+
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-extrabold text-gray-950 tracking-tight">마켓무드 모니터링 관제 대시보드</h1>
@@ -164,6 +290,7 @@ function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
+        {/* 왼쪽 섹션: 섹터 카드 세트 및 하단 거시 통계 지표 그리드 판넬 */}
         <div className="xl:col-span-2 space-y-6">
           <div className="space-y-4">
             <h2 className="text-xl font-bold text-gray-900 border-b pb-2">섹터별 시장 체온계 현황</h2>
@@ -200,6 +327,7 @@ function Dashboard() {
                       <span className="text-red-600 font-bold">악재 {sector.negative_count}</span>
                     </div>
 
+                    {/* 🛠️ [버그 퇴치 마감] 중립 필터 파라미터를 상위 게이지미터 수식에 다이렉트 이식 연동 */}
                     {isAllGaugeOpen && (
                       <div className="py-2 bg-gray-50/40 border border-dashed border-gray-200 rounded-xl animate-fade-in">
                         <GaugeMeter
@@ -312,6 +440,7 @@ function Dashboard() {
           </div>
         </div>
 
+        {/* 우측 영역: 정밀 분석 리포트, 핵심 증시 일정, 당일 수급 의견서 통합 레이아웃 마감 컬럼 */}
         <div className="xl:col-span-1 flex flex-col gap-6 w-full xl:mt-9">
           <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col gap-4">
             {sectorLoading ? (
@@ -358,8 +487,8 @@ function Dashboard() {
                     <div className="space-y-1">
                       {sectorDetail.top_positive_news && sectorDetail.top_positive_news.length > 0 ? (
                         sectorDetail.top_positive_news.map((news, idx) => (
-                          <div 
-                            key={news.id} 
+                          <div
+                            key={news.id}
                             onClick={(e) => handleNewsRedirectToDetail(news.id, e)}
                             className="text-[11px] text-gray-700 truncate font-medium hover:text-emerald-600 hover:underline cursor-pointer transition flex justify-between items-center"
                           >
@@ -382,8 +511,8 @@ function Dashboard() {
                     <div className="space-y-1">
                       {sectorDetail.top_negative_news && sectorDetail.top_negative_news.length > 0 ? (
                         sectorDetail.top_negative_news.map((news, idx) => (
-                          <div 
-                            key={news.id} 
+                          <div
+                            key={news.id}
                             onClick={(e) => handleNewsRedirectToDetail(news.id, e)}
                             className="text-[11px] text-gray-700 truncate font-medium hover:text-red-500 hover:underline cursor-pointer transition flex justify-between items-center"
                           >
@@ -420,7 +549,7 @@ function Dashboard() {
                     <div className="text-[10px] text-gray-400 mt-0.5">{schedule.event_date}</div>
                   </div>
                   <span className={`text-[11px] font-black px-2.5 py-1 rounded-md shrink-0 text-white ${
-                    schedule.d_day === 0 ? 'bg-red-500' : 
+                    schedule.d_day === 0 ? 'bg-red-500' :
                     schedule.d_day <= 3 ? 'bg-amber-500' : 'bg-gray-700'
                   }`}>
                     {schedule.d_day === 0 ? 'D-Day' : `D-${schedule.d_day}`}
@@ -435,7 +564,7 @@ function Dashboard() {
               <span className="text-xs font-black text-gray-800 block tracking-tight">당일 자본 시장 수급 동향 및 분석 의견서</span>
               <span className="text-[9px] text-gray-400 block mt-0.5">실시간 투자 주체별 누적 합산 거래 대금 기준</span>
             </div>
-            
+
             <div className="grid grid-cols-3 gap-2 text-center text-[11px] font-semibold">
               <div className="bg-gray-50 p-2 rounded-xl border border-gray-100">
                 <span className="text-[9px] text-gray-400 block mb-0.5">외국인 자본</span>

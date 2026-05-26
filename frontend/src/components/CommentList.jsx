@@ -2,14 +2,20 @@ import { useState, useEffect } from 'react'
 import { commentsApi } from '../api/commentsApi'
 import { useAuth } from '../contexts/AuthContext'
 
-function CommentList({ newsId }) {
-  const { user } = useAuth()  // 🆕 현재 로그인 유저 정보
+function CommentList({ newsId, comments: externalComments }) {
+  const { user } = useAuth()
   const [comments, setComments] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     loadComments()
   }, [newsId])
+
+  useEffect(() => {
+    if (externalComments) {
+      setComments(externalComments)
+    }
+  }, [externalComments])
 
   const loadComments = async () => {
     try {
@@ -34,7 +40,7 @@ function CommentList({ newsId }) {
     try {
       await commentsApi.deleteComment(commentId, token)
       alert('댓글이 삭제되었습니다.')
-      loadComments()
+      setComments(prev => prev.filter(c => c.id !== commentId))
     } catch (error) {
       console.error('댓글 삭제 실패:', error)
       alert('댓글 삭제에 실패했습니다. 본인의 댓글만 삭제할 수 있습니다.')
@@ -59,7 +65,7 @@ function CommentList({ newsId }) {
   return (
     <div className="bg-white rounded-lg shadow-md p-6">
       <h3 className="text-lg font-bold mb-4">
-        💬 댓글 ({comments.length})
+        댓글 ({comments.length})
       </h3>
 
       {comments.length === 0 ? (
@@ -69,8 +75,8 @@ function CommentList({ newsId }) {
       ) : (
         <div className="space-y-4">
           {comments.map(comment => (
-            <div 
-              key={comment.id} 
+            <div
+              key={comment.id}
               className="border-b border-gray-200 pb-4 last:border-0"
             >
               <div className="flex justify-between items-start mb-2">
@@ -83,7 +89,6 @@ function CommentList({ newsId }) {
                   </span>
                 </div>
 
-                {/* 🆕 본인 댓글일 때만 삭제 버튼 표시 */}
                 {user && comment.author && user.id === comment.author.id && (
                   <button
                     onClick={() => handleDelete(comment.id)}

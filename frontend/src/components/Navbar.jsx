@@ -27,8 +27,8 @@ function Navbar() {
     >
       <div className="container mx-auto px-6">
         <div className="flex items-center justify-between h-16">
-          <Link to="/" className="text-xl font-bold text-blue-600 tracking-tight">
-            📈 주식 트렌드 예측
+          <Link to="/" className="flex items-center">
+            <img src="/logo_main.png" alt="Logo" className="h-12 w-auto object-contain" />
           </Link>
           
           <div className="flex items-center gap-8">

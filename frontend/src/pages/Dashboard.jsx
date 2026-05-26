@@ -56,7 +56,6 @@ function Dashboard() {
   const [sectorDetail, setSectorDetail] = useState(null)
   const [sectorLoading, setSectorLoading] = useState(false)
   
-  // 일괄 체온계 토글 단일 상태 엔진 복원 보전
   const [isAllGaugeOpen, setIsAllGaugeOpen] = useState(false)
   
   const navigate = useNavigate()
@@ -165,7 +164,6 @@ function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
-        {/* 왼쪽 섹션: 섹터 카드 세트 및 하단 거시 통계 지표 그리드 판넬 */}
         <div className="xl:col-span-2 space-y-6">
           <div className="space-y-4">
             <h2 className="text-xl font-bold text-gray-900 border-b pb-2">섹터별 시장 체온계 현황</h2>
@@ -202,7 +200,6 @@ function Dashboard() {
                       <span className="text-red-600 font-bold">악재 {sector.negative_count}</span>
                     </div>
 
-                    {/* 🛠️ [버그 퇴치 마감] 중립 필터 파라미터를 상위 게이지미터 수식에 다이렉트 이식 연동 */}
                     {isAllGaugeOpen && (
                       <div className="py-2 bg-gray-50/40 border border-dashed border-gray-200 rounded-xl animate-fade-in">
                         <GaugeMeter
@@ -315,7 +312,6 @@ function Dashboard() {
           </div>
         </div>
 
-        {/* 우측 영역: 정밀 분석 리포트, 핵심 증시 일정, 당일 수급 의견서 통합 레이아웃 마감 컬럼 */}
         <div className="xl:col-span-1 flex flex-col gap-6 w-full xl:mt-9">
           <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col gap-4">
             {sectorLoading ? (

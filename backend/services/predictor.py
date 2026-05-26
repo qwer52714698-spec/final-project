@@ -24,6 +24,29 @@ class StockPredictor:
             random_state=42
         )
 
+    def _price_band_ratio(self, volatility):
+        if volatility is None or pd.isna(volatility):
+            return 0.04
+        return float(min(max(float(volatility) * 2.5, 0.03), 0.12))
+
+    def _stabilize_predicted_price(self, current_price, raw_predicted_price, predicted_label, volatility):
+        band_ratio = self._price_band_ratio(volatility)
+        lower_bound = current_price * (1 - band_ratio)
+        upper_bound = current_price * (1 + band_ratio)
+
+        stabilized_price = float(min(max(raw_predicted_price, lower_bound), upper_bound))
+
+        directional_nudge = current_price * 0.003
+        if predicted_label == "상승" and stabilized_price <= current_price:
+            stabilized_price = min(max(current_price + directional_nudge, stabilized_price), upper_bound)
+        elif predicted_label == "하락" and stabilized_price >= current_price:
+            stabilized_price = max(min(current_price - directional_nudge, stabilized_price), lower_bound)
+        elif predicted_label == "횡보":
+            sideway_band = current_price * min(0.005, band_ratio / 2)
+            stabilized_price = float(min(max(stabilized_price, current_price - sideway_band), current_price + sideway_band))
+
+        return round(stabilized_price, 2)
+
     def prepare_features(self, df):
         df = df.copy()
         
@@ -52,6 +75,7 @@ class StockPredictor:
         df['sp500_change'] = df['sp500'].pct_change()
         
         df['val_score'] = df['op_income'] / (close_col * df['Volume'].replace(0, 1))
+        df['val_score'] = df['val_score'].replace([np.inf, -np.inf], np.nan)
 
         df = df.ffill().bfill()
         return df
@@ -86,15 +110,28 @@ class StockPredictor:
         prediction = mapping[pred_class]
         confidence = probs[pred_class]
 
-        predicted_next_price = round(float(self.regressor.predict(last_data)[0]), 2)
+        close_series = data['Close']
+        if isinstance(close_series, pd.DataFrame):
+            close_series = close_series.iloc[:, 0]
+
+        latest_close = float(close_series.iloc[-1])
+        if len(close_series) >= 2:
+            prev_close = float(close_series.iloc[-2])
+            if latest_close > prev_close * 1.3 or latest_close < prev_close * 0.7:
+                latest_close = prev_close
+
+        latest_volatility = data['volatility'].iloc[-1] if 'volatility' in data.columns else np.nan
+        raw_predicted_next_price = float(self.regressor.predict(last_data)[0])
+        predicted_next_price = self._stabilize_predicted_price(
+            latest_close,
+            raw_predicted_next_price,
+            prediction,
+            latest_volatility
+        )
 
         importances = self.model.feature_importances_
         importance_dict = {col: float(imp) for col, imp in zip(feature_cols, importances)}
         top_factors = dict(sorted(importance_dict.items(), key=lambda x: x[1], reverse=True)[:3])
-
-        close_series = data['Close']
-        if isinstance(close_series, pd.DataFrame):
-            close_series = close_series.iloc[:, 0]
 
         actual_returns_list = []
         predicted_returns_list = []
@@ -105,7 +142,15 @@ class StockPredictor:
                 continue
             cur = float(close_series.iloc[pos])
             nxt = float(close_series.iloc[pos + 1])
-            pred_price = float(self.regressor.predict(X.loc[[idx]])[0])
+            row = data.loc[idx]
+            row_prediction_class = int(self.model.predict(X.loc[[idx]])[0])
+            row_prediction_label = mapping[row_prediction_class]
+            pred_price = self._stabilize_predicted_price(
+                cur,
+                float(self.regressor.predict(X.loc[[idx]])[0]),
+                row_prediction_label,
+                row.get('volatility', np.nan)
+            )
             actual_returns_list.append((nxt - cur) / cur * 100)
             predicted_returns_list.append((pred_price - cur) / cur * 100)
 

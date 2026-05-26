@@ -230,15 +230,15 @@ def get_sector_stocks_with_prices(sector_id: int, days: int = 150, db: Session =
 
     stocks = db.query(models.Stock).filter(models.Stock.sector_id == sector_id).distinct().all()
     result = []
-    cutoff = (datetime.now() - timedelta(days=days)).date()
-
     for stock in stocks:
         prices = (
             db.query(models.StockPrice)
-            .filter(models.StockPrice.stock_id == stock.id, models.StockPrice.date >= cutoff)
-            .order_by(models.StockPrice.date.asc())
+            .filter(models.StockPrice.stock_id == stock.id)
+            .order_by(models.StockPrice.date.desc())
+            .limit(days)
             .all()
         )
+        prices.reverse()
         result.append(schemas.StockWithPrices(stock=stock, prices=prices))
     return result
 
@@ -248,13 +248,15 @@ def get_stock_prices(symbol: str, days: int = 150, db: Session = Depends(get_db)
     if not stock:
         raise HTTPException(status_code=404, detail="종목을 찾을 수 없습니다.")
 
-    cutoff = (datetime.now() - timedelta(days=days)).date()
-    return (
+    prices = (
         db.query(models.StockPrice)
-        .filter(models.StockPrice.stock_id == stock.id, models.StockPrice.date >= cutoff)
-        .order_by(models.StockPrice.date.asc())
+        .filter(models.StockPrice.stock_id == stock.id)
+        .order_by(models.StockPrice.date.desc())
+        .limit(days)
         .all()
     )
+    prices.reverse()
+    return prices
 
 @router.post("/collect")
 def trigger_collect(background_tasks: BackgroundTasks):

@@ -12,14 +12,13 @@ function SectorStocks() {
   const { sectorId } = useParams()
   const navigate = useNavigate()
   const location = useLocation()
-  
+
   const [stocksWithPrices, setStocksWithPrices] = useState([])
   const [sector, setSector] = useState(null)
   const [loading, setLoading] = useState(true)
   const [days, setDays] = useState(30)
   const [selectedStockCombo, setSelectedStockCombo] = useState(null)
 
-  // 뉴스 관련 상태 관리
   const [news, setNews] = useState([])
   const [newsLoading, setNewsLoading] = useState(true)
   const [selectedNews, setSelectedNews] = useState(null)
@@ -27,8 +26,8 @@ function SectorStocks() {
   const [newsPage, setNewsPage] = useState(1)
   const newsPerPage = 6
 
-  // 🛠️ 판단 기준 툴팁 서브 토글 상태
   const [showCriteriaHelp, setShowCriteriaHelp] = useState(false)
+  const [updatedComments, setUpdatedComments] = useState(null)
 
   useEffect(() => {
     loadStocks()
@@ -40,8 +39,6 @@ function SectorStocks() {
     try {
       const response = await stocksApi.getSectorStocksWithPrices(sectorId, days)
       const data = response.data || []
-      
-      // 주가 데이터(prices)가 있는 정상 종목만 필터링하여 화면 무결성 마진 확보
       const validStocks = data.filter(item => item.prices && item.prices.length > 0)
       setStocksWithPrices(validStocks)
 
@@ -121,18 +118,26 @@ function SectorStocks() {
 
   const handleNewsClick = (newsItem) => {
     setSelectedNews(newsItem)
+    setUpdatedComments(null)
   }
-const filteredNews = news.filter(n => {
-    if (activeNewsTab === '전체') return true;
-const sentimentMap = { '긍정': 'positive', '부정': 'negative', '중립': 'neutral' };
-    return n.sentiment_label === sentimentMap[activeNewsTab];
-  });
-  
-  const currentNews = filteredNews.slice((newsPage - 1) * newsPerPage, newsPage * newsPerPage);
-  const totalPages = Math.ceil(filteredNews.length / newsPerPage);
+
+  const filteredNews = news.filter(n => {
+    if (activeNewsTab === '전체') return true
+    const sentimentMap = { '긍정': 'positive', '부정': 'negative', '중립': 'neutral' }
+    return n.sentiment_label === sentimentMap[activeNewsTab]
+  })
+
+  const currentNews = filteredNews.slice((newsPage - 1) * newsPerPage, newsPage * newsPerPage)
+  const totalPages = Math.ceil(filteredNews.length / newsPerPage)
+
   const handleBackToList = () => {
     setSelectedNews(null)
+    setUpdatedComments(null)
     navigate(`/sector/${sectorId}/stocks`)
+  }
+
+  const handleCommentAdded = (newCommentsList) => {
+    setUpdatedComments(newCommentsList)
   }
 
   if (loading) {
@@ -141,7 +146,6 @@ const sentimentMap = { '긍정': 'positive', '부정': 'negative', '중립': 'ne
 
   return (
     <div className="space-y-6 container mx-auto px-4 py-6 max-w-7xl">
-      {/* 1. 컨트롤 탑 인포 헤더 상단부 */}
       <div className="flex items-center justify-between border-b pb-4">
         <div className="flex items-center gap-4">
           <button
@@ -155,8 +159,8 @@ const sentimentMap = { '긍정': 'positive', '부정': 'negative', '중립': 'ne
           </h1>
         </div>
         <div className="flex gap-2">
-          <select 
-            value={days} 
+          <select
+            value={days}
             onChange={(e) => setDays(Number(e.target.value))}
             className="border border-gray-300 rounded-xl px-3 py-1.5 bg-white text-xs font-bold text-gray-700 shadow-sm"
           >
@@ -179,11 +183,10 @@ const sentimentMap = { '긍정': 'positive', '부정': 'negative', '중립': 'ne
         </div>
       </div>
 
-      {/* 🛠️ [복구 완결] 지표 분류 가이드 및 예측 판단 기준 목록 피드백 라인 */}
       <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 shadow-sm space-y-2">
         <div className="flex items-center gap-2">
           <span className="text-xs font-black text-gray-900">시장 예측 지표 분류</span>
-          <button 
+          <button
             onClick={() => setShowCriteriaHelp(!showCriteriaHelp)}
             className="w-5 h-5 flex items-center justify-center bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs font-bold rounded-full transition shadow-xs focus:outline-none"
             title="예측 판단 기준 보기"
@@ -191,8 +194,7 @@ const sentimentMap = { '긍정': 'positive', '부정': 'negative', '중립': 'ne
             ?
           </button>
         </div>
-        
-        {/* 토글 활성화 시 전개되는 세부 판단 가이드 목록 */}
+
         {showCriteriaHelp && (
           <div className="bg-white border border-gray-100 rounded-xl p-3.5 space-y-2 text-[11px] text-gray-600 leading-relaxed font-semibold shadow-inner animate-fade-in">
             <div className="text-xs font-black text-gray-800 border-b pb-1">AI 모델의 주가 트렌드 예측 판단 원칙</div>
@@ -211,7 +213,6 @@ const sentimentMap = { '긍정': 'positive', '부정': 'negative', '중립': 'ne
         </div>
       ) : (
         <div className="space-y-8">
-          {/* 2. 주식 종목 원클릭 셀렉트 활성 탭 파트 */}
           <div className="flex flex-wrap gap-2 bg-gray-50 border border-gray-200 rounded-2xl p-2.5 shadow-sm max-h-[160px] overflow-y-auto">
             {stocksWithPrices.map((combo) => {
               const isSelected = selectedStockCombo?.stock.id === combo.stock.id
@@ -231,14 +232,12 @@ const sentimentMap = { '긍정': 'positive', '부정': 'negative', '중립': 'ne
             })}
           </div>
 
-          {/* 3. 메인 분석 엔진 차트 컴포넌트 출력 */}
           {selectedStockCombo && selectedStockCombo.prices && selectedStockCombo.prices.length > 0 && (
             <div className="border-b pb-6">
               <StockChart stock={selectedStockCombo.stock} prices={selectedStockCombo.prices} />
             </div>
           )}
 
-          {/* 4. 하단에 완벽하게 일체형으로 조립된 섹터 뉴스 관제 세그먼트 */}
           <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
             {selectedNews ? (
               <div className="space-y-4 animate-fade-in">
@@ -285,8 +284,8 @@ const sentimentMap = { '긍정': 'positive', '부정': 'negative', '중립': 'ne
                   </div>
                 </div>
 
-                <CommentForm newsId={selectedNews.id} onCommentAdded={() => setSelectedNews({...selectedNews})} />
-                <CommentList key={selectedNews.id} newsId={selectedNews.id} />
+                <CommentForm newsId={selectedNews.id} onCommentAdded={handleCommentAdded} />
+                <CommentList newsId={selectedNews.id} comments={updatedComments} />
               </div>
             ) : (
               <div className="space-y-4">
@@ -302,15 +301,13 @@ const sentimentMap = { '긍정': 'positive', '부정': 'negative', '중립': 'ne
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {/* 탭 버튼 */}
                     <div className="flex gap-2 mb-4">
                       {['전체', '긍정', '부정', '중립'].map(tab => (
-                        <button key={tab} onClick={() => { setActiveNewsTab(tab); setNewsPage(1); }} className={`px-4 py-1 text-xs font-bold rounded-full border ${activeNewsTab === tab ? 'bg-slate-800 text-white' : 'bg-gray-100'}`}>
+                        <button key={tab} onClick={() => { setActiveNewsTab(tab); setNewsPage(1) }} className={`px-4 py-1 text-xs font-bold rounded-full border ${activeNewsTab === tab ? 'bg-slate-800 text-white' : 'bg-gray-100'}`}>
                           {tab}
                         </button>
                       ))}
                     </div>
-                    {/* 뉴스 목록 */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 min-h-[300px]">
                       {currentNews.map(item => (
                         <div key={item.id} onClick={() => handleNewsClick(item)} className="cursor-pointer transition transform hover:-translate-y-0.5">
@@ -318,7 +315,6 @@ const sentimentMap = { '긍정': 'positive', '부정': 'negative', '중립': 'ne
                         </div>
                       ))}
                     </div>
-                    {/* 페이지네이션 */}
                     <div className="flex justify-center gap-2 mt-6">
                       {[...Array(totalPages)].map((_, i) => (
                         <button key={i} onClick={() => setNewsPage(i + 1)} className={`px-3 py-1 text-xs font-bold rounded ${newsPage === i + 1 ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}>

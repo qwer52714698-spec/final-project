@@ -305,7 +305,7 @@ function Dashboard() {
                     key={sector.sector_id}
                     onClick={() => setSelectedSector(sector.sector_id)}
                     className={`bg-white rounded-xl p-4 flex flex-col gap-3 cursor-pointer transition border shadow-sm ${
-                      isSelected ? 'border-2 border-slate-800 bg-slate-50/30' : 'border-gray-200 hover:border-gray-300'
+                      isSelected ? 'border-4 border-gray-200 bg-gray-100' : 'border-gray-200 hover:border-gray-300'
                     }`}
                   >
                     <div className="w-full flex items-start justify-between">

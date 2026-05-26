@@ -33,7 +33,7 @@ function Navbar() {
           
           <div className="flex items-center gap-8">
             <Link to="/" className="text-gray-600 hover:text-blue-600 font-medium transition text-sm">
-              대시보드
+              메인
             </Link>
             
             <button 

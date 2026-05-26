@@ -273,12 +273,7 @@ function Dashboard() {
       <BannerSlider />
 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-extrabold text-gray-950 tracking-tight">마켓무드 모니터링 관제 대시보드</h1>
-          <p className="text-xs text-gray-400 mt-1">
-            관제 데이터 최종 동기화 시각: {macroData ? formatSyncTime(macroData.updated_at) : '-'}
-          </p>
-        </div>
+        
         <div>
           <button
             onClick={() => setIsAllGaugeOpen(!isAllGaugeOpen)}

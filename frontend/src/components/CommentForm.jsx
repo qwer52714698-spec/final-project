@@ -17,16 +17,17 @@ function CommentForm({ newsId, onCommentAdded }) {
 
     setLoading(true)
     try {
-      // ✅ localStorage에서 토큰 그대로 가져오기 (Bearer 중복 방지)
-      const token = localStorage.getItem('token')
+      const savedToken = localStorage.getItem('token')
+      const tokenWithBearer = savedToken && !savedToken.startsWith('Bearer ')
+        ? `Bearer ${savedToken}`
+        : savedToken
 
-      await commentsApi.createComment(newsId, content, token)
+      const response = await commentsApi.createComment(newsId, content, tokenWithBearer)
       setContent('')
-
-      // ✅ 댓글 작성 후 목록 자동 새로고침
       if (onCommentAdded) {
         onCommentAdded()
       }
+      alert('댓글이 작성되었습니다.')
     } catch (error) {
       console.error('댓글 작성 실패:', error)
       const status = error.response?.status
@@ -43,14 +44,14 @@ function CommentForm({ newsId, onCommentAdded }) {
 
   return (
     <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-      <h3 className="text-lg font-bold mb-4">💬 댓글 작성</h3>
+      <h3 className="text-lg font-bold mb-4">댓글 작성</h3>
 
       {!isAuthenticated ? (
         <div className="text-center py-8 text-gray-500">
           댓글을 작성하려면 로그인이 필요합니다.
           <div className="mt-4">
             <a href="/login" className="text-blue-600 hover:underline">
-              로그인하러 가기 →
+              로그인하러 가기
             </a>
           </div>
         </div>

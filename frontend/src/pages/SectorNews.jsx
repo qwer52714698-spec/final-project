@@ -18,6 +18,7 @@ function SectorNews() {
   const [selectedNews, setSelectedNews] = useState(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
+  const [updatedComments, setUpdatedComments] = useState(null)
 
   useEffect(() => {
     setCurrentPage(1)
@@ -35,11 +36,9 @@ function SectorNews() {
       setNews(newsItems)
       setTotalCount(response.data.total)
 
-      // 대시보드에서 쿼리스트링(?newsId=값)을 달고 진입했을 때 강제 팝업 바인딩
       const searchParams = new URLSearchParams(location.search)
       const focusNewsId = searchParams.get('newsId') || location.state?.targetNewsId
       if (focusNewsId) {
-        // 이미 받아온 뉴스 풀에서 찾거나, 없으면 단일 상세조회 API 연동 대응
         const found = newsItems.find(item => item.id === parseInt(focusNewsId))
         if (found) {
           setSelectedNews(found)
@@ -81,11 +80,17 @@ function SectorNews() {
 
   const handleNewsClick = (newsItem) => {
     setSelectedNews(newsItem)
+    setUpdatedComments(null)
   }
 
   const handleBackToList = () => {
     setSelectedNews(null)
-    navigate(`/sector/${sectorId}/news`) // 쿼리스트링 클리어 처리
+    setUpdatedComments(null)
+    navigate(`/sector/${sectorId}/news`)
+  }
+
+  const handleCommentAdded = (newCommentsList) => {
+    setUpdatedComments(newCommentsList)
   }
 
   const totalPages = Math.ceil(totalCount / PAGE_SIZE)
@@ -103,7 +108,6 @@ function SectorNews() {
     return <div className="text-center py-20">로딩 중...</div>
   }
 
-  // 뉴스 상세보기 + 댓글 (보라색 AI 분석 버튼 완벽 도려냄)
   if (selectedNews) {
     return (
       <div>
@@ -111,7 +115,7 @@ function SectorNews() {
           onClick={handleBackToList}
           className="mb-6 text-blue-600 hover:text-blue-800 font-medium"
         >
-          ← 목록으로 돌아가기
+          목록으로 돌아가기
         </button>
 
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
@@ -133,7 +137,7 @@ function SectorNews() {
 
           {selectedNews.ai_summary && (
             <div className="bg-blue-50 p-4 rounded-lg mb-4">
-              <h3 className="font-semibold mb-2">📝 AI 요약</h3>
+              <h3 className="font-semibold mb-2">AI 요약</h3>
               <p className="text-gray-700">{selectedNews.ai_summary}</p>
             </div>
           )}
@@ -147,34 +151,24 @@ function SectorNews() {
           <div className="flex justify-between items-center text-sm text-gray-500 border-t pt-4">
             <span>{new Date(selectedNews.published_at).toLocaleDateString('ko-KR')}</span>
             {selectedNews.url && (
-              <a 
-                href={selectedNews.url} 
-                target="_blank" 
-                rel="noopener noreferrer" 
+              <a
+                href={selectedNews.url}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="text-blue-600 hover:underline"
               >
-                원문 보기 →
+                원문 보기
               </a>
             )}
           </div>
         </div>
 
-        {/* ✅ 댓글 작성 후 refreshKey 증가 → CommentList 자동 새로고침 */}
-        <CommentForm
-          newsId={selectedNews.id}
-          onCommentAdded={() => setRefreshKey(k => k + 1)}
-        />
-
-        <CommentList
-          key={selectedNews.id}
-          newsId={selectedNews.id}
-          refresh={refreshKey}
-        />
+        <CommentForm newsId={selectedNews.id} onCommentAdded={handleCommentAdded} />
+        <CommentList newsId={selectedNews.id} comments={updatedComments} />
       </div>
     )
   }
 
-  // 뉴스 목록
   return (
     <div>
       <div className="flex items-center justify-between mb-8">
@@ -183,10 +177,10 @@ function SectorNews() {
             onClick={() => navigate('/')}
             className="text-gray-600 hover:text-gray-900"
           >
-            ← 돌아가기
+            돌아가기
           </button>
           <h1 className="text-3xl font-bold">
-            {sector?.icon} {sector?.name} 뉴스
+            {sector?.name} 뉴스
           </h1>
         </div>
         <button
@@ -221,7 +215,7 @@ function SectorNews() {
                   disabled={currentPage === 1}
                   className="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-100 disabled:opacity-30 transition"
                 >
-                  ←
+                  &lt;
                 </button>
                 {getPageNumbers().map(page => (
                   <button
@@ -241,7 +235,7 @@ function SectorNews() {
                   disabled={currentPage === totalPages}
                   className="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-100 disabled:opacity-30 transition"
                 >
-                  →
+                  &gt;
                 </button>
               </div>
               <div className="text-center text-xs text-gray-400 mt-2">

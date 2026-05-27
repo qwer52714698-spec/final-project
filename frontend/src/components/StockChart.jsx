@@ -478,7 +478,7 @@ function StockChart({ stock, prices: initialPrices }) {
               </div>
             </div>
 
-            {/* 🛠️ [복구 수술 핵심 구역] 지표 분류 헤더 우측에 물음표(?) 태그 및 호버 가이드 복원 조립 */}
+            
             <div className="border-t border-gray-100 pt-2 space-y-3">
               <div className="flex items-center gap-1.5 text-xs text-gray-400">
                 <span>지표 분류</span>
@@ -491,14 +491,33 @@ function StockChart({ stock, prices: initialPrices }) {
                   </div>
                 </span>
               </div>
-              
+              <div className="border-t border-gray-100 pt-4 mt-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-black text-gray-700">AI 모델 지표 기여도</span>
+              <div className="relative group">
+                <button className="w-5 h-5 flex items-center justify-center bg-gray-100 hover:bg-gray-200 rounded-full text-[10px] font-bold text-gray-600 transition">
+                  ?
+                </button>
+
+                <div className="absolute left-0 bottom-full mb-2 w-64 bg-slate-900 text-white p-3 rounded-lg text-[10px] shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                  <div className="grid grid-cols-2 gap-2">
+                    {['종가', '거래량', '금리', '환율', '유가', 'S&P500', '기관순매수', '외인순매수', '변동성', '밸류'].map(item => (
+                      <div key={item}>• {item}</div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            
+          </div>              
               <div className="flex flex-col gap-1.5">
                 {Object.entries(prediction.top_influencers).map(([key, val]) => (
                   <div key={key}>
                     <div className="flex justify-between text-xs mb-0.5 items-center">
                       <span className="flex items-center gap-1">
                         <span className="text-gray-600 font-medium">{factorLabel[key] || key}</span>
-                        {/* 🛠️ [복구 수술] 개별 피처 변수(금리, 환율 등) 호버 툴팁 가이드 라인 완벽 복구 */}
+                        
                         <span className="relative group">
                           <span className="text-[9px] text-slate-400 bg-slate-100 hover:bg-slate-200 transition rounded-full w-3 h-3 flex items-center justify-center cursor-help leading-none select-none font-bold">?</span>
                           <span className="absolute bottom-full left-0 mb-1.5 w-52 bg-slate-900/95 backdrop-blur-sm text-white text-[10px] p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-50 pointer-events-none whitespace-normal shadow-xl border border-slate-800 leading-normal font-medium">

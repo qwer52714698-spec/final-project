@@ -27,21 +27,14 @@ function Navbar() {
       onMouseLeave={() => setIsOpen(false)}
     >
       <div className="container mx-auto px-6">
-        {/* ✅ h-16 → h-20 으로 세로폭 늘림 */}
-        <div className="flex items-center justify-between h-20">
-
-          {/* ✅ 텍스트 로고 → 이미지 로고로 변경 */}
-          <Link to="/">
-            <img
-              src="/logo_main.png"
-              alt="MarketMood"
-              className="h-10 object-contain"
-            />
+        <div className="flex items-center justify-between h-16">
+          <Link to="/" className="flex items-center">
+            <img src="/logo_main.png" alt="Logo" className="h-12 w-auto object-contain" />
           </Link>
 
           <div className="flex items-center gap-8">
             <Link to="/" className="text-gray-600 hover:text-blue-600 font-medium transition text-sm">
-              대시보드
+              메인
             </Link>
 
             {/* ✅ h-16 → h-20 으로 버튼 높이도 맞춤 */}

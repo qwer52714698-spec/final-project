@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react'
 import { commentsApi } from '../api/commentsApi'
 import { useAuth } from '../contexts/AuthContext'
 
-function CommentList({ newsId, refresh }) {
-  const { user } = useAuth()  // 🆕 현재 로그인 유저 정보
+function CommentList({ newsId, comments: externalComments }) {
+  const { user } = useAuth()
   const [comments, setComments] = useState([])
   const [loading, setLoading] = useState(true)
   const [editingId, setEditingId] = useState(null)    // 🆕 수정 중인 댓글 id
@@ -13,6 +13,12 @@ function CommentList({ newsId, refresh }) {
   useEffect(() => {
     loadComments()
   }, [newsId, refresh])
+
+  useEffect(() => {
+    if (externalComments) {
+      setComments(externalComments)
+    }
+  }, [externalComments])
 
   const loadComments = async () => {
     try {
@@ -37,7 +43,7 @@ function CommentList({ newsId, refresh }) {
     try {
       await commentsApi.deleteComment(commentId, token)
       alert('댓글이 삭제되었습니다.')
-      loadComments()
+      setComments(prev => prev.filter(c => c.id !== commentId))
     } catch (error) {
       console.error('댓글 삭제 실패:', error)
       alert('댓글 삭제에 실패했습니다. 본인의 댓글만 삭제할 수 있습니다.')
@@ -99,7 +105,7 @@ function CommentList({ newsId, refresh }) {
   return (
     <div className="bg-white rounded-lg shadow-md p-6">
       <h3 className="text-lg font-bold mb-4">
-        💬 댓글 ({comments.length})
+        댓글 ({comments.length})
       </h3>
 
       {comments.length === 0 ? (
@@ -123,22 +129,13 @@ function CommentList({ newsId, refresh }) {
                   </span>
                 </div>
 
-                {/* 🆕 본인 댓글일 때만 수정/삭제 버튼 표시 */}
-                {user && comment.author && user.id === comment.author.id && editingId !== comment.id && (
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleEditStart(comment)}
-                      className="text-sm text-blue-600 hover:text-blue-800"
-                    >
-                      수정
-                    </button>
-                    <button
-                      onClick={() => handleDelete(comment.id)}
-                      className="text-sm text-red-600 hover:text-red-800"
-                    >
-                      삭제
-                    </button>
-                  </div>
+                {user && comment.author && user.id === comment.author.id && (
+                  <button
+                    onClick={() => handleDelete(comment.id)}
+                    className="text-sm text-red-600 hover:text-red-800"
+                  >
+                    삭제
+                  </button>
                 )}
               </div>
 

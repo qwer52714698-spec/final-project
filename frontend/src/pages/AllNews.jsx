@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { newsApi } from '../api/newsApi'
 import NewsCard from '../components/NewsCard'
 import CommentList from '../components/CommentList'
@@ -18,8 +18,7 @@ function AllNews() {
   const [selectedNews, setSelectedNews] = useState(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
-  // ✅ 댓글 새로고침용
-  const [refreshKey, setRefreshKey] = useState(0)
+  const [updatedComments, setUpdatedComments] = useState(null)
 
   useEffect(() => {
     loadSectors()
@@ -34,11 +33,10 @@ function AllNews() {
     loadNews(currentPage)
   }, [currentPage])
 
-  // 🔥 [핵심 교정] 대시보드 랭킹 링크에서 넘어오는 특정 뉴스 고유 ID 실시간 인터셉트 감지기
   useEffect(() => {
     const searchParams = new URLSearchParams(location.search)
     const focusNewsId = searchParams.get('newsId')
-    
+
     if (focusNewsId) {
       if (news && news.length > 0) {
         const found = news.find(item => item.id === parseInt(focusNewsId))
@@ -47,8 +45,7 @@ function AllNews() {
           return
         }
       }
-      
-      // 목록 풀에 아직 로드가 안 된 과거 뉴스일 경우 백엔드 보존 테이블 단일 다이렉트 쿼리 통신
+
       api.get(`/news/${focusNewsId}`)
         .then(res => {
           setSelectedNews(res.data)
@@ -83,12 +80,17 @@ function AllNews() {
 
   const handleNewsClick = (newsItem) => {
     setSelectedNews(newsItem)
+    setUpdatedComments(null)
   }
 
   const handleBackToList = () => {
     setSelectedNews(null)
-    // 상세를 접고 나갈 때 URL 뒤에 붙어있던 쿼리스트링 찌꺼기를 깨끗하게 청소
-    navigate('/news') 
+    setUpdatedComments(null)
+    navigate('/news')
+  }
+
+  const handleCommentAdded = (newCommentsList) => {
+    setUpdatedComments(newCommentsList)
   }
 
   const totalPages = Math.ceil(totalCount / PAGE_SIZE)
@@ -106,12 +108,11 @@ function AllNews() {
     return <div className="text-center py-20">로딩 중...</div>
   }
 
-  // 1. 단일 뉴스 상세 보기 화면 분기 (🤖 보라색 AI 분석 버튼 완벽 도려냄 수술 완료)
   if (selectedNews) {
     return (
       <div>
         <button onClick={handleBackToList} className="mb-6 text-blue-600 hover:text-blue-800 font-medium">
-          ← 목록으로 돌아가기
+          목록으로 돌아가기
         </button>
 
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
@@ -133,7 +134,7 @@ function AllNews() {
 
           {selectedNews.ai_summary && (
             <div className="bg-blue-50 p-4 rounded-lg mb-4">
-              <h3 className="font-semibold mb-2">📝 AI 요약</h3>
+              <h3 className="font-semibold mb-2">AI 요약</h3>
               <p className="text-gray-700">{selectedNews.ai_summary}</p>
             </div>
           )}
@@ -148,28 +149,18 @@ function AllNews() {
             <span>{new Date(selectedNews.published_at || selectedNews.collected_at).toLocaleDateString('ko-KR')}</span>
             {selectedNews.url && (
               <a href={selectedNews.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                원문 보기 →
+                원문 보기
               </a>
             )}
           </div>
         </div>
 
-        {/* ✅ 댓글 작성 후 refreshKey 증가 → CommentList 자동 새로고침 */}
-        <CommentForm
-          newsId={selectedNews.id}
-          onCommentAdded={() => setRefreshKey(k => k + 1)}
-        />
-
-        <CommentList
-          key={selectedNews.id}
-          newsId={selectedNews.id}
-          refresh={refreshKey}
-        />
+        <CommentForm newsId={selectedNews.id} onCommentAdded={handleCommentAdded} />
+        <CommentList newsId={selectedNews.id} comments={updatedComments} />
       </div>
     )
   }
 
-  // 2. 뉴스 카테고리별 전체 목록 보기 화면 분기 (상단에 존재하던 보라색 AI 일괄 분석 단추 전면 청소 완료)
   return (
     <div>
       <div className="flex items-center justify-between mb-8">

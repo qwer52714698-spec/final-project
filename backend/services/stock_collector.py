@@ -197,10 +197,17 @@ def _fetch_prices_batch(symbols: list, start: str, end: str) -> dict:
         else:
             for sym in symbols:
                 try:
-                    df = raw[sym].dropna(how="all")
+                    if isinstance(raw.columns, pd.MultiIndex):
+                        if sym in raw.columns.get_level_values(0):
+                            df = raw[sym].dropna(how="all")
+                        else:
+                            df = raw.xs(sym, level=1, axis=1).dropna(how="all")
+                    else:
+                        df = raw.dropna(how="all")
+                        
                     if not df.empty:
                         result[sym] = df
-                except (KeyError, TypeError):
+                except Exception:
                     pass
         return result
     except Exception as e:
@@ -218,7 +225,7 @@ def collect_stock_prices():
         if not stocks:
             return
 
-        end = datetime.utcnow()
+        end = datetime.utcnow() + timedelta(days=1)
         start = end - timedelta(days=90)
         start_str = start.strftime("%Y-%m-%d")
         end_str   = end.strftime("%Y-%m-%d")
@@ -276,7 +283,6 @@ def collect_stock_prices():
                     db.rollback()
                     print(f"[주가수집] {symbol} 개별 오류: {e}")
 
-        # ✅ 모든 반복문이 끝난 뒤(try 블록 내부)에 실행됩니다.
         print(f"[주가수집] 완료! 오늘 총 {total_new_records}건의 데이터가 업데이트되었습니다.")
         with open("stock_collect_result.txt", "w") as f:
             f.write(str(total_new_records))
